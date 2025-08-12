@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Intrastat - Alstom Movilidad</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .upload-area {
+            border: 3px dashed #3498db;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .upload-area.dragover {
+            background: #e1f5fe;
+            border-color: #01579b;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #3498db;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            margin: 5px;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .btn-large {
+            padding: 20px 40px;
+            font-size: 1.2em;
+        }
+
+        .file-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .file-details {
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #fff, #f8f9fa);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid #3498db;
+        }
+
+        .summary-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .summary-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+
+        .tabs {
+            display: flex;
+            background: #ecf0f1;
+            border-radius: 10px;
+            padding: 5px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            font-size: 0.9em;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .data-table th {
+            background: #2c3e50;
+            color: white;
+            font-weight: 600;
+            font-size: 0.8em;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .export-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .country-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .country-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #e74c3c;
+        }
+
+        .mapping-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .mapping-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .mapping-column {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .mapping-column h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .field-mapping {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .progress-section {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .log-area {
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .mapping-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚂 Gestor de Intrastat</h1>
+            <p>Alstom Movilidad - Procesamiento y Consolidación de Datos Intrastat</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Pestañas de navegación -->
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('processor')">🔄 Procesador</div>
+                <div class="tab" onclick="switchTab('exports')">📤 Exportaciones</div>
+                <div class="tab" onclick="switchTab('imports')">📥 Importaciones</div>
+                <div class="tab" onclick="switchTab('summary')">📊 Resumen Final</div>
+            </div>
+
+            <!-- Procesador Principal -->
+            <div id="processor" class="tab-content active">
+                <div class="section">
+                    <h2>🔄 Procesamiento de Archivos Alstom</h2>
+                    
+                    <div class="alert alert-info">
+                        <strong>📋 Flujo de trabajo:</strong>
+                        <ol style="margin-top: 10px; margin-left: 20px;">
+                            <li>Sube los archivos Excel desestructurados de las delegaciones</li>
+                            <li>El sistema los procesará y mapeará al formato AEAT</li>
+                            <li>Revisa y valida los datos procesados</li>
+                            <li>Descarga el archivo CSV final para AEAT</li>
+                        </ol>
+                    </div>
+
+                    <div class="upload-area" id="main-upload" onclick="document.getElementById('main-files').click()" 
+                         ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                        <div class="upload-icon">📁</div>
+                        <h3>Arrastra archivos Excel/CSV de Alstom aquí</h3>
+                        <p>Archivos soportados: .xlsx, .xls, .csv</p>
+                        <p><strong>Procesa automáticamente:</strong> Expediciones e Importaciones</p>
+                        <input type="file" id="main-files" class="file-input" multiple accept=".xlsx,.xls,.csv">
+                    </div>
+
+                    <div id="progress-section" class="progress-section" style="display: none;">
+                        <h3>Procesando archivos...</h3>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <p id="progress-text">Iniciando...</p>
+                    </div>
+
+                    <div id="log-section" style="display: none;">
+                        <h3>Log de Procesamiento:</h3>
+                        <div id="log-area" class="log-area"></div>
+                    </div>
+
+                    <div id="processed-files" class="file-list" style="display: none;">
+                        <h3>Archivos Procesados:</h3>
+                        <div id="processed-files-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido de Exportaciones -->
+            <div id="exports" class="tab-content">
+                <div class="section">
+                    <h2>📤 Exportaciones Procesadas (Expediciones)</h2>
+                    
+                    <div class="summary-grid" id="export-summary">
+                        <div class="summary-card">
+                            <h3>Total Registros</h3>
+                            <div class="summary-value" id="export-total-records">0</div>
+                            <div class="summary-label">expediciones procesadas</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Valor Total</h3>
+                            <div class="summary-value" id="export-total-value">€0</div>
+                            <div class="summary-label">importe facturado</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Países Destino</h3>
+                            <div class="summary-value" id="export-countries">0</div>
+                            <div class="summary-label">países diferentes</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Masa Neta Total</h3>
+                            <div class="summary-value" id="export-total-weight">0</div>
+                            <div class="summary-label">kg exportados</div>
+                        </div>
+                    </div>
+
+                    <div id="export-data-section" style="display: none;">
+                        <h3>Datos de Exportación (Primeros 100 registros):</h3>
+                        <div style="overflow-x: auto;">
+                            <table class="data-table" id="export-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>País</th>
+                                        <th>Provincia</th>
+                                        <th>Cond. Entrega</th>
+                                        <th>Nat. Trans.</th>
+                                        <th>Transporte</th>
+                                        <th>Puerto</th>
+                                        <th>Cód. Mercancía</th>
+                                        <th>País Origen</th>
+                                        <th>Reg. Est.</th>
+                                        <th>Masa Neta</th>
+                                        <th>Unid. Supl.</th>
+                                        <th>Imp. Facturado</th>
+                                        <th>Valor Est.</th>
+                                        <th>NIF Contraparte</th>
+                                        <th>Origen</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido de Importaciones -->
+            <div id="imports" class="tab-content">
+                <div class="section">
+                    <h2>📥 Importaciones Procesadas</h2>
+                    
+                    <div class="summary-grid" id="import-summary">
+                        <div class="summary-card">
+                            <h3>Total Registros</h3>
+                            <div class="summary-value" id="import-total-records">0</div>
+                            <div class="summary-label">importaciones procesadas</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Valor Total</h3>
+                            <div class="summary-value" id="import-total-value">€0</div>
+                            <div class="summary-label">importe facturado</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Países Origen</h3>
+                            <div class="summary-value" id="import-countries">0</div>
+                            <div class="summary-label">países diferentes</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Masa Neta Total</h3>
+                            <div class="summary-value" id="import-total-weight">0</div>
+                            <div class="summary-label">kg importados</div>
+                        </div>
+                    </div>
+
+                    <div id="import-data-section" style="display: none;">
+                        <h3>Datos de Importación (Primeros 100 registros):</h3>
+                        <div style="overflow-x: auto;">
+                            <table class="data-table" id="import-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>País</th>
+                                        <th>Provincia</th>
+                                        <th>Cond. Entrega</th>
+                                        <th>Nat. Trans.</th>
+                                        <th>Transporte</th>
+                                        <th>Puerto</th>
+                                        <th>Cód. Mercancía</th>
+                                        <th>País Origen</th>
+                                        <th>Reg. Est.</th>
+                                        <th>Masa Neta</th>
+                                        <th>Unid. Supl.</th>
+                                        <th>Imp. Facturado</th>
+                                        <th>Valor Est.</th>
+                                        <th>NIF Contraparte</th>
+                                        <th>Origen</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen Final -->
+            <div id="summary" class="tab-content">
+                <div class="section">
+                    <h2>📊 Resumen Final y Exportación</h2>
+                    
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <h3>Total General</h3>
+                            <div class="summary-value" id="total-records">0</div>
+                            <div class="summary-label">registros procesados</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Valor Comercio</h3>
+                            <div class="summary-value" id="total-trade-value">€0</div>
+                            <div class="summary-label">valor total comercio</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Archivos Origen</h3>
+                            <div class="summary-value" id="total-files">0</div>
+                            <div class="summary-label">archivos procesados</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Países Únicos</h3>
+                            <div class="summary-value" id="total-countries">0</div>
+                            <div class="summary-label">países comercio</div>
+                        </div>
+                    </div>
+
+                    <div class="export-section">
+                        <h3>🎯 Generar Archivos AEAT</h3>
+                        <p>Descarga los archivos CSV listos para subir a la AEAT</p>
+                        
+                        <div style="margin-top: 20px;">
+                            <button class="btn btn-success btn-large" id="download-exports" onclick="downloadExports()" disabled>
+                                📤 Descargar Exportaciones AEAT
+                            </button>
+                            <button class="btn btn-success btn-large" id="download-imports" onclick="downloadImports()" disabled>
+                                📥 Descargar Importaciones AEAT
+                            </button>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <button class="btn btn-large" onclick="downloadConsolidatedReport()" disabled id="download-report">
+                                📋 Descargar Informe Consolidado
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="country-breakdown-section" style="display: none;">
+                        <h3>Desglose por Países:</h3>
+                        <div id="country-breakdown" class="country-breakdown"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let exportData = [];
+        let importData = [];
+        let processedFiles = [];
+        let currentTab = 'processor';
+
+        // Configuración de mapeo para diferentes tipos de archivos de Alstom
+        const FIELD_MAPPINGS = {
+            // Mapeo estándar basado en los archivos PDF que vi
+            intrastat_export: {
+                'Estado Miembro': 0,     // FR, DE, IT, etc.
+                'Provincia': 1,          // 48 (Bizkaia)
+                'Cond Entrega': 2,       // FCA
+                'Nat Trans': 3,          // 11
+                'Modo Transporte': 4,    // 3
+                'Puerto': 5,             // vacío
+                'Cod Mercancia': 6,      // 85044095, etc.
+                'Pais Origen': 7,        // ES, DE, etc.
+                'Reg Estadistico': 8,    // 1
+                'Masa Neta': 9,          // peso en kg
+                'Unid Suplementaria': 10, // 0
+                'Importe Factura': 11,   // valor
+                'Valor Estadistico': 12, // mismo que factura
+                'NIF Contraparte': 13    // NIF del cliente
+            }
+        };
+
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            logMessage('Sistema inicializado. Listo para procesar archivos de Alstom.');
+        });
+
+        function setupEventListeners() {
+            document.getElementById('main-files').addEventListener('change', handleFileSelect);
+            
+            // Drag and drop
+            const uploadArea = document.getElementById('main-upload');
+            uploadArea.addEventListener('drop', handleDrop);
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+        }
+
+        function switchTab(tabName) {
+            // Ocultar todas las pestañas
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Ocultar todos los botones de pestaña
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Mostrar la pestaña seleccionada
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            currentTab = tabName;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            processFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            processFiles(files);
+        }
+
+        async function processFiles(files) {
+            if (files.length === 0) return;
+
+            showProgress();
+            logMessage(`Iniciando procesamiento de ${files.length} archivo(s)...`);
+
+            let totalFiles = files.length;
+            let processedCount = 0;
+
+            for (let file of files) {
+                try {
+                    logMessage(`Procesando: ${file.name}`);
+                    updateProgress((processedCount / totalFiles) * 100, `Procesando ${file.name}...`);
+
+                    const result = await processFile(file);
+                    if (result) {
+                        processedFiles.push({
+                            name: file.name,
+                            size: file.size,
+                            type: result.type,
+                            recordCount: result.recordCount,
+                            processedAt: new Date()
+                        });
+                        
+                        if (result.type === 'export') {
+                            exportData = exportData.concat(result.data);
+                        } else if (result.type === 'import') {
+                            importData = importData.concat(result.data);
+                        }
+                        
+                        logMessage(`✅ ${file.name}: ${result.recordCount} registros procesados como ${result.type}`);
+                    }
+                } catch (error) {
+                    logMessage(`❌ Error procesando ${file.name}: ${error.message}`);
+                }
+                
+                processedCount++;
+            }
+
+            updateProgress(100, 'Procesamiento completado');
+            updateSummaries();
+            showProcessedFiles();
+            enableDownloads();
+            
+            logMessage(`🎉 Procesamiento completado. Total: ${exportData.length} exportaciones, ${importData.length} importaciones`);
+        }
+
+        async function processFile(file) {
+            const fileName = file.name.toLowerCase();
+            
+            if (fileName.endsWith('.csv')) {
+                return await processCSVFile(file);
+            } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+                return await processExcelFile(file);
+            } else {
+                throw new Error('Formato de archivo no soportado');
+            }
+        }
+
+        async function processCSVFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const text = e.target.result;
+                        const lines = text.split('\n').filter(line => line.trim());
+                        
+                        // Detectar si es un archivo ya procesado (formato AEAT) o raw
+                        const firstLine = lines[0];
+                        const isAEATFormat = firstLine.split(';').length >= 14;
+                        
+                        let data = [];
+                        let type = 'unknown';
+                        
+                        if (isAEATFormat) {
+                            // Ya está en formato AEAT, solo clasificar
+                            data = lines.map((line, index) => {
+                                const fields = line.split(';');
+                                return {
+                                    estadoMiembro: fields[0] || '',
+                                    provincia: fields[1] || '48',
+                                    condEntrega: fields[2] || 'FCA',
+                                    natTrans: fields[3] || '11',
+                                    modoTransporte: fields[4] || '3',
+                                    puerto: fields[5] || '',
+                                    codMercancia: fields[6] || '',
+                                    paisOrigen: fields[7] || '',
+                                    regEstadistico: fields[8] || '1',
+                                    masaNeta: parseFloat(fields[9]) || 0,
+                                    unidSuplementaria: parseFloat(fields[10]) || 0,
+                                    importeFactura: parseFloat(fields[11]) || 0,
+                                    valorEstadistico: parseFloat(fields[12]) || 0,
+                                    nifContraparte: fields[13] || '',
+                                    origen: file.name,
+                                    lineaOriginal: index + 1
+                                };
+                            });
+                            
+                            // Determinar tipo basándose en el contenido
+                            type = determineTradeType(data);
+                        } else {
+                            // Formato raw de Alstom, necesita procesamiento
+                            data = processRawCSVData(lines, file.name);
+                            type = determineTradeType(data);
+                        }
+                        
+                        resolve({
+                            type: type,
+                            data: data,
+                            recordCount: data.length
+                        });
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(new Error('Error leyendo archivo CSV'));
+                reader.readAsText(file);
+            });
+        }
+
+        async function processExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // Procesar la primera hoja
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                        
+                        // Procesar datos basándose en la estructura detectada
+                        const processedData = processExcelData(jsonData, file.name);
+                        const type = determineTradeType(processedData);
+                        
+                        resolve({
+                            type: type,
+                            data: processedData,
+                            recordCount: processedData.length
+                        });
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(new Error('Error leyendo archivo Excel'));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function processExcelData(jsonData, fileName) {
+            // Filtrar filas vacías y encontrar la fila de cabeceras
+            const nonEmptyRows = jsonData.filter(row => row && row.some(cell => cell !== null && cell !== undefined && cell !== ''));
+            
+            if (nonEmptyRows.length === 0) return [];
+            
+            // Buscar patrones comunes en los archivos de Alstom
+            let dataStartRow = 0;
+            let headerRow = null;
+            
+            // Buscar fila que contenga campos típicos de Intrastat
+            for (let i = 0; i < Math.min(10, nonEmptyRows.length); i++) {
+                const row = nonEmptyRows[i];
+                const rowText = row.join('|').toLowerCase();
+                
+                if (rowText.includes('mercancia') || rowText.includes('pais') || 
+                    rowText.includes('importe') || rowText.includes('masa') ||
+                    rowText.includes('estado') || rowText.includes('francia')) {
+                    headerRow = row;
+                    dataStartRow = i + 1;
+                    break;
+                }
+            }
+            
+            // Si no encontramos cabeceras claras, asumir que los datos empiezan en la fila 1
+            if (headerRow === null) {
+                dataStartRow = 1;
+            }
+            
+            const dataRows = nonEmptyRows.slice(dataStartRow);
+            
+            return dataRows.map((row, index) => {
+                // Mapeo inteligente basado en patrones comunes
+                return mapExcelRowToIntrastat(row, index, fileName);
+            }).filter(item => item !== null);
+        }
+
+        function mapExcelRowToIntrastat(row, index, fileName) {
+            // Si la fila está vacía o no tiene suficientes datos, saltarla
+            if (!row || row.length < 5) return null;
+            
+            // Mapeo inteligente basándose en patrones observados
+            let mapped = {
+                estadoMiembro: '',
+                provincia: '48', // Bizkaia por defecto para Alstom
+                condEntrega: 'FCA', // Franco Transportista por defecto
+                natTrans: '11', // Compra/venta sin restricciones
+                modoTransporte: '3', // Carretera
+                puerto: '', // Vacío por defecto
+                codMercancia: '',
+                paisOrigen: '',
+                regEstadistico: '1',
+                masaNeta: 0,
+                unidSuplementaria: 0,
+                importeFactura: 0,
+                valorEstadistico: 0,
+                nifContraparte: '',
+                origen: fileName,
+                lineaOriginal: index + 1
+            };
+            
+            // Buscar patrones en los datos
+            for (let i = 0; i < row.length; i++) {
+                const cell = row[i];
+                if (cell === null || cell === undefined) continue;
+                
+                const cellStr = String(cell).trim().toUpperCase();
+                
+                // Detectar país (códigos de 2 letras)
+                if (cellStr.match(/^[A-Z]{2}$/) && ['FR', 'DE', 'IT', 'ES', 'NL', 'BE', 'PT', 'HU', 'PL', 'SE', 'DK', 'FI', 'AT', 'CZ', 'SK', 'SI', 'HR', 'BG', 'RO', 'EE', 'LV', 'LT', 'CY', 'MT', 'LU', 'IE'].includes(cellStr)) {
+                    if (!mapped.estadoMiembro) {
+                        mapped.estadoMiembro = cellStr;
+                    } else if (!mapped.paisOrigen) {
+                        mapped.paisOrigen = cellStr;
+                    }
+                }
+                
+                // Detectar código de mercancía (8 dígitos)
+                if (cellStr.match(/^[0-9]{8}$/)) {
+                    mapped.codMercancia = cellStr;
+                }
+                
+                // Detectar valores monetarios
+                if (typeof cell === 'number' && cell > 10) {
+                    if (mapped.importeFactura === 0) {
+                        mapped.importeFactura = cell;
+                        mapped.valorEstadistico = cell; // Mismo valor por defecto
+                    } else if (cell < mapped.importeFactura && mapped.masaNeta === 0) {
+                        mapped.masaNeta = cell; // Probablemente el peso
+                    }
+                }
+                
+                // Detectar NIF (patrones típicos)
+                if (cellStr.match(/^[A-Z]{2}[0-9A-Z]{8,12}$/)) {
+                    mapped.nifContraparte = cellStr;
+                }
+            }
+            
+            // Validar que tenemos datos mínimos
+            if (!mapped.estadoMiembro || !mapped.codMercancia || mapped.importeFactura === 0) {
+                return null;
+            }
+            
+            return mapped;
+        }
+
+        function processRawCSVData(lines, fileName) {
+            return lines.map((line, index) => {
+                const fields = line.split(';');
+                if (fields.length < 5) return null;
+                
+                return mapExcelRowToIntrastat(fields, index, fileName);
+            }).filter(item => item !== null);
+        }
+
+        function determineTradeType(data) {
+            // Determinar si son exportaciones o importaciones
+            // Basándose en si el país origen es España o no
+            if (data.length === 0) return 'unknown';
+            
+            const esOriginCount = data.filter(item => item.paisOrigen === 'ES').length;
+            const totalCount = data.length;
+            
+            // Si más del 50% tienen origen España, son exportaciones
+            return (esOriginCount / totalCount) > 0.5 ? 'export' : 'import';
+        }
+
+        function updateSummaries() {
+            updateExportSummary();
+            updateImportSummary();
+            updateFinalSummary();
+        }
+
+        function updateExportSummary() {
+            if (exportData.length === 0) return;
+            
+            const totalRecords = exportData.length;
+            const totalValue = exportData.reduce((sum, item) => sum + item.importeFactura, 0);
+            const totalWeight = exportData.reduce((sum, item) => sum + item.masaNeta, 0);
+            const countries = [...new Set(exportData.map(item => item.estadoMiembro))];
+            
+            document.getElementById('export-total-records').textContent = totalRecords.toLocaleString();
+            document.getElementById('export-total-value').textContent = `€${totalValue.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
+            document.getElementById('export-countries').textContent = countries.length;
+            document.getElementById('export-total-weight').textContent = `${totalWeight.toLocaleString('es-ES', {minimumFractionDigits: 0})} kg`;
+            
+            // Mostrar tabla de datos
+            showExportData();
+        }
+
+        function updateImportSummary() {
+            if (importData.length === 0) return;
+            
+            const totalRecords = importData.length;
+            const totalValue = importData.reduce((sum, item) => sum + item.importeFactura, 0);
+            const totalWeight = importData.reduce((sum, item) => sum + item.masaNeta, 0);
+            const countries = [...new Set(importData.map(item => item.estadoMiembro))];
+            
+            document.getElementById('import-total-records').textContent = totalRecords.toLocaleString();
+            document.getElementById('import-total-value').textContent = `€${totalValue.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
+            document.getElementById('import-countries').textContent = countries.length;
+            document.getElementById('import-total-weight').textContent = `${totalWeight.toLocaleString('es-ES', {minimumFractionDigits: 0})} kg`;
+            
+            // Mostrar tabla de datos
+            showImportData();
+        }
+
+        function updateFinalSummary() {
+            const totalRecords = exportData.length + importData.length;
+            const totalValue = exportData.reduce((sum, item) => sum + item.importeFactura, 0) + 
+                              importData.reduce((sum, item) => sum + item.importeFactura, 0);
+            const totalFiles = processedFiles.length;
+            const allCountries = [...new Set([
+                ...exportData.map(item => item.estadoMiembro),
+                ...importData.map(item => item.estadoMiembro)
+            ])];
+            
+            document.getElementById('total-records').textContent = totalRecords.toLocaleString();
+            document.getElementById('total-trade-value').textContent = `€${totalValue.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
+            document.getElementById('total-files').textContent = totalFiles;
+            document.getElementById('total-countries').textContent = allCountries.length;
+            
+            // Mostrar desglose por países
+            showCountryBreakdown(allCountries);
+        }
+
+        function showExportData() {
+            const table = document.getElementById('export-data-table').getElementsByTagName('tbody')[0];
+            table.innerHTML = '';
+            
+            const dataToShow = exportData.slice(0, 100); // Primeros 100 registros
+            
+            dataToShow.forEach(item => {
+                const row = table.insertRow();
+                row.innerHTML = `
+                    <td>${item.estadoMiembro}</td>
+                    <td>${item.provincia}</td>
+                    <td>${item.condEntrega}</td>
+                    <td>${item.natTrans}</td>
+                    <td>${item.modoTransporte}</td>
+                    <td>${item.puerto}</td>
+                    <td>${item.codMercancia}</td>
+                    <td>${item.paisOrigen}</td>
+                    <td>${item.regEstadistico}</td>
+                    <td>${item.masaNeta.toLocaleString('es-ES', {minimumFractionDigits: 3})}</td>
+                    <td>${item.unidSuplementaria.toLocaleString('es-ES', {minimumFractionDigits: 3})}</td>
+                    <td>€${item.importeFactura.toLocaleString('es-ES', {minimumFractionDigits: 2})}</td>
+                    <td>€${item.valorEstadistico.toLocaleString('es-ES', {minimumFractionDigits: 2})}</td>
+                    <td>${item.nifContraparte}</td>
+                    <td>${item.origen}</td>
+                `;
+            });
+            
+            document.getElementById('export-data-section').style.display = 'block';
+        }
+
+        function showImportData() {
+            const table = document.getElementById('import-data-table').getElementsByTagName('tbody')[0];
+            table.innerHTML = '';
+            
+            const dataToShow = importData.slice(0, 100); // Primeros 100 registros
+            
+            dataToShow.forEach(item => {
+                const row = table.insertRow();
+                row.innerHTML = `
+                    <td>${item.estadoMiembro}</td>
+                    <td>${item.provincia}</td>
+                    <td>${item.condEntrega}</td>
+                    <td>${item.natTrans}</td>
+                    <td>${item.modoTransporte}</td>
+                    <td>${item.puerto}</td>
+                    <td>${item.codMercancia}</td>
+                    <td>${item.paisOrigen}</td>
+                    <td>${item.regEstadistico}</td>
+                    <td>${item.masaNeta.toLocaleString('es-ES', {minimumFractionDigits: 3})}</td>
+                    <td>${item.unidSuplementaria.toLocaleString('es-ES', {minimumFractionDigits: 3})}</td>
+                    <td>€${item.importeFactura.toLocaleString('es-ES', {minimumFractionDigits: 2})}</td>
+                    <td>€${item.valorEstadistico.toLocaleString('es-ES', {minimumFractionDigits: 2})}</td>
+                    <td>${item.nifContraparte}</td>
+                    <td>${item.origen}</td>
+                `;
+            });
+            
+            document.getElementById('import-data-section').style.display = 'block';
+        }
+
+        function showCountryBreakdown(countries) {
+            const container = document.getElementById('country-breakdown');
+            container.innerHTML = '';
+            
+            countries.forEach(country => {
+                const exportCount = exportData.filter(item => item.estadoMiembro === country).length;
+                const importCount = importData.filter(item => item.estadoMiembro === country).length;
+                const exportValue = exportData.filter(item => item.estadoMiembro === country)
+                    .reduce((sum, item) => sum + item.importeFactura, 0);
+                const importValue = importData.filter(item => item.estadoMiembro === country)
+                    .reduce((sum, item) => sum + item.importeFactura, 0);
+                
+                const card = document.createElement('div');
+                card.className = 'country-card';
+                card.innerHTML = `
+                    <div class="country-flag">${getCountryFlag(country)}</div>
+                    <h4>${country}</h4>
+                    <p><strong>Exportaciones:</strong> ${exportCount} (€${exportValue.toLocaleString('es-ES')})</p>
+                    <p><strong>Importaciones:</strong> ${importCount} (€${importValue.toLocaleString('es-ES')})</p>
+                `;
+                container.appendChild(card);
+            });
+            
+            document.getElementById('country-breakdown-section').style.display = 'block';
+        }
+
+        function getCountryFlag(countryCode) {
+            const flags = {
+                'FR': '🇫🇷', 'DE': '🇩🇪', 'IT': '🇮🇹', 'ES': '🇪🇸', 'NL': '🇳🇱',
+                'BE': '🇧🇪', 'PT': '🇵🇹', 'HU': '🇭🇺', 'PL': '🇵🇱', 'SE': '🇸🇪',
+                'DK': '🇩🇰', 'FI': '🇫🇮', 'AT': '🇦🇹', 'CZ': '🇨🇿', 'SK': '🇸🇰',
+                'SI': '🇸🇮', 'HR': '🇭🇷', 'BG': '🇧🇬', 'RO': '🇷🇴', 'EE': '🇪🇪',
+                'LV': '🇱🇻', 'LT': '🇱🇹', 'CY': '🇨🇾', 'MT': '🇲🇹', 'LU': '🇱🇺',
+                'IE': '🇮🇪', 'CH': '🇨🇭', 'NO': '🇳🇴', 'CN': '🇨🇳'
+            };
+            return flags[countryCode] || '🏳️';
+        }
+
+        function showProcessedFiles() {
+            const container = document.getElementById('processed-files-container');
+            container.innerHTML = '';
+            
+            processedFiles.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div class="file-info">
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-details">
+                            ${(file.size / 1024).toFixed(1)} KB • 
+                            ${file.recordCount} registros • 
+                            Tipo: ${file.type === 'export' ? 'Exportación' : 'Importación'} • 
+                            ${file.processedAt.toLocaleString()}
+                        </div>
+                    </div>
+                    <div>
+                        <span style="color: #27ae60; font-weight: bold;">✅ Procesado</span>
+                    </div>
+                `;
+                container.appendChild(fileItem);
+            });
+            
+            document.getElementById('processed-files').style.display = 'block';
+        }
+
+        function showProgress() {
+            document.getElementById('progress-section').style.display = 'block';
+            document.getElementById('log-section').style.display = 'block';
+        }
+
+        function updateProgress(percentage, message) {
+            document.getElementById('progress-fill').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = message;
+        }
+
+        function logMessage(message) {
+            const logArea = document.getElementById('log-area');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `[${timestamp}] ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function enableDownloads() {
+            document.getElementById('download-exports').disabled = exportData.length === 0;
+            document.getElementById('download-imports').disabled = importData.length === 0;
+            document.getElementById('download-report').disabled = exportData.length === 0 && importData.length === 0;
+        }
+
+        function downloadExports() {
+            if (exportData.length === 0) {
+                alert('No hay datos de exportación para descargar');
+                return;
+            }
+            
+            const csvContent = generateAEATCSV(exportData);
+            downloadFile(csvContent, 'Intrastat_Exportaciones_AEAT.csv', 'text/csv');
+            logMessage(`📥 Descargado archivo de exportaciones: ${exportData.length} registros`);
+        }
+
+        function downloadImports() {
+            if (importData.length === 0) {
+                alert('No hay datos de importación para descargar');
+                return;
+            }
+            
+            const csvContent = generateAEATCSV(importData);
+            downloadFile(csvContent, 'Intrastat_Importaciones_AEAT.csv', 'text/csv');
+            logMessage(`📥 Descargado archivo de importaciones: ${importData.length} registros`);
+        }
+
+        function downloadConsolidatedReport() {
+            const report = generateConsolidatedReport();
+            downloadFile(report, 'Informe_Intrastat_Consolidado.txt', 'text/plain');
+            logMessage('📥 Descargado informe consolidado');
+        }
+
+        function generateAEATCSV(data) {
+            // Formato AEAT: Estado miembro;Provincia;Condiciones de entrega;Naturaleza de la Transacción;Modalidad de Transporte;Puerto;Código de las mercancias;País de Origen;Régimen estadístico;Masa Neta;Unidades Suplementarias;Importe Facturado;Valor Estadístico;NIF IVA
+            
+            return data.map(item => {
+                return [
+                    item.estadoMiembro,
+                    item.provincia,
+                    item.condEntrega,
+                    item.natTrans,
+                    item.modoTransporte,
+                    item.puerto,
+                    item.codMercancia,
+                    item.paisOrigen,
+                    item.regEstadistico,
+                    item.masaNeta.toFixed(3).replace('.', ','),
+                    item.unidSuplementaria.toFixed(3).replace('.', ','),
+                    item.importeFactura.toFixed(2).replace('.', ','),
+                    item.valorEstadistico.toFixed(2).replace('.', ','),
+                    item.nifContraparte
+                ].join(';');
+            }).join('\n');
+        }
+
+        function generateConsolidatedReport() {
+            const now = new Date();
+            const report = `
+INFORME CONSOLIDADO INTRASTAT - ALSTOM MOVILIDAD
+Generado: ${now.toLocaleString()}
+
+═══════════════════════════════════════════════════════════════
+
+RESUMEN GENERAL:
+- Total de registros procesados: ${exportData.length + importData.length}
+- Archivos procesados: ${processedFiles.length}
+- Valor total del comercio: €${(exportData.reduce((sum, item) => sum + item.importeFactura, 0) + importData.reduce((sum, item) => sum + item.importeFactura, 0)).toLocaleString('es-ES', {minimumFractionDigits: 2})}
+
+EXPORTACIONES (EXPEDICIONES):
+- Número de registros: ${exportData.length}
+- Valor total: €${exportData.reduce((sum, item) => sum + item.importeFactura, 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}
+- Masa neta total: ${exportData.reduce((sum, item) => sum + item.masaNeta, 0).toLocaleString('es-ES')} kg
+- Países destino: ${[...new Set(exportData.map(item => item.estadoMiembro))].join(', ')}
+
+IMPORTACIONES:
+- Número de registros: ${importData.length}
+- Valor total: €${importData.reduce((sum, item) => sum + item.importeFactura, 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}
+- Masa neta total: ${importData.reduce((sum, item) => sum + item.masaNeta, 0).toLocaleString('es-ES')} kg
+- Países origen: ${[...new Set(importData.map(item => item.estadoMiembro))].join(', ')}
+
+ARCHIVOS PROCESADOS:
+${processedFiles.map(file => `- ${file.name} (${file.recordCount} registros, ${file.type === 'export' ? 'Exportación' : 'Importación'})`).join('\n')}
+
+═══════════════════════════════════════════════════════════════
+
+NOTA: Los archivos CSV generados están listos para subir directamente a la AEAT.
+Formato utilizado: Campos separados por punto y coma (;), decimales con coma (,)
+`;
+            return report;
+        }
+
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
