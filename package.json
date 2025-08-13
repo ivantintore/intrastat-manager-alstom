@@ -1,0 +1,13 @@
+{
+  "name": "intrastat-manager-alstom",
+  "version": "1.0.0",
+  "description": "Gestor de Intrastat - Alstom Movilidad",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "build": "echo 'No build needed'"
+  },
+  "dependencies": {
+    "serve": "^14.0.0"
+  }
+}
