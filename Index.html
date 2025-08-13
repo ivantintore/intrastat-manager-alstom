@@ -779,18 +779,7 @@
             });
         }
 
-        async function processExcelFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        
-                        // Procesar la primera hoja
-                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                        // Función para determinar tipo de comercio
+        // Función para determinar tipo de comercio - DEBE IR ANTES DE processExcelFile
         function determineTradeType(data) {
             if (data.length === 0) return 'unknown';
             
@@ -806,9 +795,24 @@
                 }
             });
             
+            console.log(`Debug: exportCount=${exportCount}, importCount=${importCount}, total=${data.length}`);
+            
             // Si más del 50% son exportaciones, clasificar como export
             return exportCount > importCount ? 'export' : 'import';
         }
+
+        async function processExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // Procesar la primera hoja
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                        
                         // Procesar datos basándose en la estructura detectada
                         const processedData = processExcelData(jsonData, file.name);
                         const type = determineTradeType(processedData);
