@@ -886,95 +886,153 @@
         }
 
         function mapExcelRowToIntrastat(row, index, fileName) {
-            // Si la fila está vacía o no tiene suficientes datos, saltarla
-            if (!row || row.length < 5) return null;
-            
-            // Mapeo inteligente basándose en patrones observados
-            let mapped = {
-                estadoMiembro: '',
-                provincia: '48', // Bizkaia por defecto para Alstom
-                condEntrega: 'FCA', // Franco Transportista por defecto
-                natTrans: '11', // Compra/venta sin restricciones
-                modoTransporte: '3', // Carretera
-                puerto: '', // Vacío por defecto
-                codMercancia: '',
-                paisOrigen: '',
-                regEstadistico: '1',
-                masaNeta: 0,
-                unidSuplementaria: 0,
-                importeFactura: 0,
-                valorEstadistico: 0,
-                nifContraparte: '',
-                origen: fileName,
-                lineaOriginal: index + 1
-            };
-            
-            // Buscar patrones en los datos
-            for (let i = 0; i < row.length; i++) {
-                const cell = row[i];
-                if (cell === null || cell === undefined) continue;
-                
-                const cellStr = String(cell).trim().toUpperCase();
-                
-                // Detectar país (códigos de 2 letras)
-                if (cellStr.match(/^[A-Z]{2}$/) && ['FR', 'DE', 'IT', 'ES', 'NL', 'BE', 'PT', 'HU', 'PL', 'SE', 'DK', 'FI', 'AT', 'CZ', 'SK', 'SI', 'HR', 'BG', 'RO', 'EE', 'LV', 'LT', 'CY', 'MT', 'LU', 'IE'].includes(cellStr)) {
-                    if (!mapped.estadoMiembro) {
-                        mapped.estadoMiembro = cellStr;
-                    } else if (!mapped.paisOrigen) {
-                        mapped.paisOrigen = cellStr;
-                    }
-                }
-                
-                // Detectar código de mercancía (8 dígitos)
-                if (cellStr.match(/^[0-9]{8}$/)) {
-                    mapped.codMercancia = cellStr;
-                }
-                
-                // Detectar valores monetarios
-                if (typeof cell === 'number' && cell > 10) {
-                    if (mapped.importeFactura === 0) {
-                        mapped.importeFactura = cell;
-                        mapped.valorEstadistico = cell; // Mismo valor por defecto
-                    } else if (cell < mapped.importeFactura && mapped.masaNeta === 0) {
-                        mapped.masaNeta = cell; // Probablemente el peso
-                    }
-                }
-                
-                // Detectar NIF (patrones típicos)
-                if (cellStr.match(/^[A-Z]{2}[0-9A-Z]{8,12}$/)) {
-                    mapped.nifContraparte = cellStr;
-                }
-            }
-            
-            // Validar que tenemos datos mínimos
-            if (!mapped.estadoMiembro || !mapped.codMercancia || mapped.importeFactura === 0) {
-                return null;
-            }
-            
-            return mapped;
-        }
+    // Si la fila está vacía o no tiene suficientes datos, saltarla
+    if (!row || row.length < 15) return null;
+    
+    // Mapeo específico para el formato de Alstom Intrastat
+    // Basado en la estructura: FACTURA|FECHA|ART|REF|DESC|CANT|IMPORTE|PESO_UD|peso|PESO_TOTAL|HS_CODE|INCOTERM|TRANSPORTE|PAIS_ORIGEN|NIF_VIES|PAIS_ENTREGA
+    
+    const estadoMiembro = getCountryCode(row[15]); // PAÍS ENTREGA
+    const paisOrigen = getCountryCode(row[13]);    // PAÍS ORIGEN MERCANCÍA
+    const codMercancia = cleanHSCode(row[10]);     // HS CODE
+    const importeFactura = Math.abs(parseFloat(row[6]) || 0); // BASE IMP (valor absoluto)
+    const masaNeta = Math.abs(parseFloat(row[9]) || 0);       // PESO TOTAL (valor absoluto)
+    const nifContraparte = row[14] ? row[14].toString().trim() : ''; // NIF VIES
+    
+    // Validar que tenemos datos mínimos requeridos
+    if (!estadoMiembro || !codMercancia || importeFactura === 0) {
+        return null;
+    }
+    
+    // Determinar si es exportación o importación
+    // Si el país de entrega es diferente a España y el origen es España -> Exportación
+    // Si el país de origen es diferente a España -> Importación
+    const isExport = (paisOrigen === 'ES' || paisOrigen === '') && estadoMiembro !== 'ES';
+    
+    return {
+        estadoMiembro: estadoMiembro,
+        provincia: '48', // Bizkaia por defecto para Alstom
+        condEntrega: row[11] ? row[11].toString().trim() : 'FCA',
+        natTrans: '11', // Compra/venta definitiva
+        modoTransporte: getModoTransporte(row[12]), // Mapear modo de transporte
+        puerto: '', // Vacío por defecto
+        codMercancia: codMercancia,
+        paisOrigen: paisOrigen || 'ES', // Si no hay país origen, asumir España
+        regEstadistico: '1',
+        masaNeta: masaNeta,
+        unidSuplementaria: 0,
+        importeFactura: importeFactura,
+        valorEstadistico: importeFactura, // Mismo valor que factura
+        nifContraparte: nifContraparte,
+        origen: fileName,
+        lineaOriginal: index + 1,
+        tipoOperacion: isExport ? 'export' : 'import' // Para debugging
+    };
+}
 
-        function processRawCSVData(lines, fileName) {
-            return lines.map((line, index) => {
-                const fields = line.split(';');
-                if (fields.length < 5) return null;
-                
-                return mapExcelRowToIntrastat(fields, index, fileName);
-            }).filter(item => item !== null);
-        }
+function getCountryCode(countryName) {
+    if (!countryName) return '';
+    
+    const name = countryName.toString().toLowerCase().trim();
+    
+    // Mapeo de nombres de países a códigos ISO
+    const countryMap = {
+        'francia': 'FR',
+        'france': 'FR',
+        'alemania': 'DE',
+        'germany': 'DE',
+        'deutschland': 'DE',
+        'estonia': 'EE',
+        'lituania': 'LT',
+        'lithuania': 'LT',
+        'italia': 'IT',
+        'italy': 'IT',
+        'países bajos': 'NL',
+        'netherlands': 'NL',
+        'holanda': 'NL',
+        'bélgica': 'BE',
+        'belgium': 'BE',
+        'portugal': 'PT',
+        'hungría': 'HU',
+        'hungary': 'HU',
+        'polonia': 'PL',
+        'poland': 'PL',
+        'suecia': 'SE',
+        'sweden': 'SE',
+        'dinamarca': 'DK',
+        'denmark': 'DK',
+        'finlandia': 'FI',
+        'finland': 'FI',
+        'austria': 'AT',
+        'república checa': 'CZ',
+        'czech republic': 'CZ',
+        'eslovaquia': 'SK',
+        'slovakia': 'SK',
+        'eslovenia': 'SI',
+        'slovenia': 'SI',
+        'croacia': 'HR',
+        'croatia': 'HR',
+        'bulgaria': 'BG',
+        'rumanía': 'RO',
+        'romania': 'RO',
+        'españa': 'ES',
+        'spain': 'ES'
+    };
+    
+    return countryMap[name] || '';
+}
 
-        function determineTradeType(data) {
-            // Determinar si son exportaciones o importaciones
-            // Basándose en si el país origen es España o no
-            if (data.length === 0) return 'unknown';
-            
-            const esOriginCount = data.filter(item => item.paisOrigen === 'ES').length;
-            const totalCount = data.length;
-            
-            // Si más del 50% tienen origen España, son exportaciones
-            return (esOriginCount / totalCount) > 0.5 ? 'export' : 'import';
-        }
+function cleanHSCode(code) {
+    if (!code) return '';
+    
+    // Limpiar código HS: quitar puntos, espacios y normalizar
+    return code.toString()
+        .replace(/\./g, '') // Quitar puntos
+        .replace(/\s/g, '') // Quitar espacios
+        .padEnd(8, '0')     // Asegurar 8 dígitos
+        .substring(0, 8);   // Máximo 8 dígitos
+}
 
+function getModoTransporte(transporte) {
+    if (!transporte) return '3'; // Carretera por defecto
+    
+    const modo = transporte.toString().toLowerCase();
+    
+    const transporteMap = {
+        'carretera': '3',
+        'road': '3',
+        'marítimo': '1',
+        'sea': '1',
+        'ferrocarril': '2',
+        'rail': '2',
+        'aéreo': '4',
+        'air': '4',
+        'correos': '5',
+        'mail': '5'
+    };
+    
+    return transporteMap[modo] || '3'; // Carretera por defecto
+}
+
+// Función auxiliar para determinar el tipo de operación basándose en los datos procesados
+function determineTradeType(data) {
+    if (data.length === 0) return 'unknown';
+    
+    // Contar exportaciones vs importaciones basándose en el país de origen
+    let exportCount = 0;
+    let importCount = 0;
+    
+    data.forEach(item => {
+        if (item.paisOrigen === 'ES' && item.estadoMiembro !== 'ES') {
+            exportCount++;
+        } else if (item.paisOrigen !== 'ES' && item.estadoMiembro !== 'ES') {
+            importCount++;
+        }
+    });
+    
+    // Si más del 50% son exportaciones, clasificar como export
+    return exportCount > importCount ? 'export' : 'import';
+}
         function updateSummaries() {
             updateExportSummary();
             updateImportSummary();
