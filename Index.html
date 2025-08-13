@@ -790,7 +790,25 @@
                         // Procesar la primera hoja
                         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                        
+                        // Función para determinar tipo de comercio
+        function determineTradeType(data) {
+            if (data.length === 0) return 'unknown';
+            
+            // Contar exportaciones vs importaciones
+            let exportCount = 0;
+            let importCount = 0;
+            
+            data.forEach(item => {
+                if (item && item.paisOrigen === 'ES' && item.estadoMiembro !== 'ES') {
+                    exportCount++;
+                } else if (item && item.paisOrigen !== 'ES' && item.estadoMiembro !== 'ES') {
+                    importCount++;
+                }
+            });
+            
+            // Si más del 50% son exportaciones, clasificar como export
+            return exportCount > importCount ? 'export' : 'import';
+        }
                         // Procesar datos basándose en la estructura detectada
                         const processedData = processExcelData(jsonData, file.name);
                         const type = determineTradeType(processedData);
