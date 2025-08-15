@@ -857,7 +857,7 @@
             const estadoMiembro = getCountryCode(row[15]); // PAÍS ENTREGA
             const paisOrigen = getCountryCode(row[13]);    // PAÍS ORIGEN MERCANCÍA
             const codMercancia = cleanHSCode(row[10]);     // HS CODE
-            const importeFactura = Math.abs(parseFloat(row[6]) || 0); // BASE IMP (valor absoluto)
+            const importeFactura = parseFloat(row[6]) || 0; // BASE IMP (mantener signo original)
             const masaNeta = Math.abs(parseFloat(row[9]) || 0);       // PESO TOTAL (valor absoluto)
             const nifContraparte = row[14] ? row[14].toString().trim() : ''; // NIF VIES
             
