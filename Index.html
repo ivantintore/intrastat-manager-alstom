@@ -385,6 +385,19 @@
 <body>
     <div class="container">
         <div class="header">
+<!-- Version and Deployment Info -->
+<div style="position: absolute; top: 10px; right: 15px; font-size: 0.8em; color: rgba(255,255,255,0.8); z-index: 1000;">
+    <div id="version-info" style="text-align: right; margin-bottom: 5px;">
+        <span style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 12px; display: inline-block;">
+            📦 v<span id="app-version">1.3.0</span>
+        </span>
+    </div>
+    <div id="deployment-info" style="text-align: right;">
+        <span id="deployment-status" style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 12px; display: inline-block;">
+            🚀 <span id="deployment-time">Cargando...</span>
+        </span>
+    </div>
+</div>
             <h1>🚂 Gestor de Intrastat</h1>
             <p>Alstom Movilidad - Procesamiento y Consolidación de Datos Intrastat</p>
         </div>
@@ -626,6 +639,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
             logMessage('Sistema inicializado. Listo para procesar archivos de Alstom.');
+// Mostrar información de deployment
+updateDeploymentInfo();
         });
 
         function setupEventListeners() {
@@ -1313,6 +1328,51 @@ Formato utilizado: Campos separados por punto y coma (;), decimales con coma (,)
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+// Función para mostrar información de deployment
+        function updateDeploymentInfo() {
+            // Versión basada en la fecha/hora actual del despliegue
+            const deployTime = new Date();
+            const version = document.getElementById('app-version').textContent;
+            
+            // Actualizar tiempo de deployment
+            updateDeploymentTime(deployTime);
+            
+            // Actualizar cada minuto para mostrar "hace X minutos"
+            setInterval(() => {
+                updateDeploymentTime(deployTime);
+            }, 60000); // Cada minuto
+            
+            // Log de la versión
+            logMessage(`🏷️ Aplicación iniciada - Versión ${version} - Deploy: ${deployTime.toLocaleString()}`);
+        }
+
+        function updateDeploymentTime(deployTime) {
+            const now = new Date();
+            const diffMs = now - deployTime;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+            
+            let timeText = '';
+            if (diffDays > 0) {
+                timeText = `hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+            } else if (diffHours > 0) {
+                timeText = `hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+            } else if (diffMins > 0) {
+                timeText = `hace ${diffMins} min`;
+            } else {
+                timeText = 'recién deployado';
+            }
+            
+            document.getElementById('deployment-time').textContent = timeText;
+        }
+
+        // Función para actualizar versión manualmente
+        function updateVersion(newVersion) {
+            document.getElementById('app-version').textContent = newVersion;
+            localStorage.setItem('app-version', newVersion);
         }
     </script>
 </body>
