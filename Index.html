@@ -1579,36 +1579,61 @@ function detectNIF(row) {
     const data = type === 'exports' ? processedData.consolidatedExports : processedData.consolidatedImports;
     
     if (data.length === 0) {
-        showAlert('No hay datos para exportar', 'error');
+        alert('No hay datos para exportar');
         return;
     }
 
-    // Generar CSV formato AEAT
+    console.log('🔄 Generando CSV AEAT para:', type, 'con', data.length, 'países');
+
+    // Generar CSV formato AEAT exacto
     let csvContent = '';
     
     data.forEach(country => {
         country.records.forEach(record => {
-            // Formato AEAT: Estado miembro;Provincia;Condiciones;Naturaleza;Transporte;Puerto;Código;País origen;Régimen;Masa;Unidades;Importe;Valor;NIF
+            console.log('📄 Procesando registro:', record);
+            
+            // FORMATO AEAT EXACTO:
+            // Estado miembro(A2) - Provincia(N2) - Condiciones(A3) - Naturaleza(N2) - Transporte(N1) - Puerto(N4) - Código(N8) - País Origen(A2) - Régimen(N1) - Masa(N12) - Unidades(N12) - Importe(N13,2) - Valor(N13,2) - NIF(A2X)
+            
+            const estadoMiembro = record.estadoMiembro || country.country || 'FR';
+            const provincia = record.provincia || '48';
+            const condiciones = record.condiciones || 'FOB';
+            const naturaleza = record.naturaleza || '11';
+            const transporte = record.transporte || '3';
+            const puerto = record.puerto || ''; // Opcional
+            const codigoMercancia = record.codigoMercancia || '85044095';
+            const paisOrigen = type === 'exports' ? 'ES' : (record.paisOrigen || estadoMiembro);
+            const regimen = record.regimen || '1';
+            const masaNeta = record.masaNeta || record.importeFacturado || 0;
+            const unidadesSuplementarias = record.unidadesSuplementarias || ''; // Opcional
+            const importeFacturado = (record.importeFacturado || 0).toFixed(2).replace('.', ',');
+            const valorEstadistico = (record.valorEstadistico || record.importeFacturado || 0).toFixed(2).replace('.', ',');
+            const nifContraparte = record.nifContraparte || '';
+            
+            // Construir línea exacta AEAT
             const line = [
-                record.estadoMiembro || 'FR',
-                record.provincia || '48',
-                record.condiciones || 'FCA',
-                record.naturaleza || '11',
-                record.transporte || '3',
-                record.puerto || '',
-                record.codigoMercancia || '85044095',
-                record.paisOrigen || 'ES',
-                record.regimen || '',
-                record.masaNeta || '',
-                record.unidadesSuplementarias || '',
-                String(record.importeFacturado || 0).replace('.', ','),
-                String(record.valorEstadistico || record.importeFacturado || 0).replace('.', ','),
-                record.nifContraparte || ''
+                estadoMiembro,
+                provincia,
+                condiciones,
+                naturaleza,
+                transporte,
+                puerto,
+                codigoMercancia,
+                paisOrigen,
+                regimen,
+                masaNeta,
+                unidadesSuplementarias,
+                importeFacturado,
+                valorEstadistico,
+                nifContraparte
             ].join(';');
             
             csvContent += line + '\n';
+            console.log('📝 Línea CSV generada:', line);
         });
     });
+
+    console.log('📊 CSV final generado:', csvContent.substring(0, 200) + '...');
 
     // Crear y descargar archivo CSV
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1621,63 +1646,73 @@ function detectNIF(row) {
     link.click();
     document.body.removeChild(link);
     
-    showAlert(`Archivo CSV AEAT descargado exitosamente`, 'success');
+    alert(`✅ Archivo CSV AEAT descargado: ${csvContent.split('\n').length - 1} registros`);
 }
 
         function exportConsolidated() {
     if (processedData.consolidatedExports.length === 0 && processedData.consolidatedImports.length === 0) {
-        showAlert('No hay datos procesados para exportar', 'error');
+        alert('No hay datos procesados para exportar');
         return;
     }
 
-    // Generar archivo consolidado con ambos tipos
+    console.log('🔄 Generando CSV AEAT consolidado...');
+
+    // Generar archivo consolidado con formato AEAT exacto
     let csvContent = '';
+    let totalRecords = 0;
+    
+    // Función auxiliar para generar línea AEAT
+    function generateAEATLine(record, country, isExport) {
+        const estadoMiembro = record.estadoMiembro || country.country || 'FR';
+        const provincia = record.provincia || '48';
+        const condiciones = record.condiciones || 'FOB';
+        const naturaleza = record.naturaleza || '11';
+        const transporte = record.transporte || '3';
+        const puerto = record.puerto || '';
+        const codigoMercancia = record.codigoMercancia || '85044095';
+        const paisOrigen = isExport ? 'ES' : (record.paisOrigen || estadoMiembro);
+        const regimen = record.regimen || '1';
+        const masaNeta = record.masaNeta || record.importeFacturado || 0;
+        const unidadesSuplementarias = record.unidadesSuplementarias || '';
+        const importeFacturado = (record.importeFacturado || 0).toFixed(2).replace('.', ',');
+        const valorEstadistico = (record.valorEstadistico || record.importeFacturado || 0).toFixed(2).replace('.', ',');
+        const nifContraparte = record.nifContraparte || '';
+        
+        return [
+            estadoMiembro,
+            provincia,
+            condiciones,
+            naturaleza,
+            transporte,
+            puerto,
+            codigoMercancia,
+            paisOrigen,
+            regimen,
+            masaNeta,
+            unidadesSuplementarias,
+            importeFacturado,
+            valorEstadistico,
+            nifContraparte
+        ].join(';');
+    }
     
     // Exportaciones
     processedData.consolidatedExports.forEach(country => {
         country.records.forEach(record => {
-            const line = [
-                record.estadoMiembro || 'FR',
-                record.provincia || '48',
-                record.condiciones || 'FCA',
-                record.naturaleza || '11',
-                record.transporte || '3',
-                record.puerto || '',
-                record.codigoMercancia || '85044095',
-                record.paisOrigen || 'ES',
-                record.regimen || '',
-                record.masaNeta || '',
-                record.unidadesSuplementarias || '',
-                String(record.importeFacturado || 0).replace('.', ','),
-                String(record.valorEstadistico || record.importeFacturado || 0).replace('.', ','),
-                record.nifContraparte || ''
-            ].join(';');
-            csvContent += line + '\n';
+            csvContent += generateAEATLine(record, country, true) + '\n';
+            totalRecords++;
         });
     });
     
     // Importaciones  
     processedData.consolidatedImports.forEach(country => {
         country.records.forEach(record => {
-            const line = [
-                record.estadoMiembro || 'FR',
-                record.provincia || '48',
-                record.condiciones || 'FCA',
-                record.naturaleza || '11',
-                record.transporte || '3',
-                record.puerto || '',
-                record.codigoMercancia || '85044095',
-                record.paisOrigen || (record.estadoMiembro || 'FR'), // Para imports, país origen es el de la contraparte
-                record.regimen || '',
-                record.masaNeta || '',
-                record.unidadesSuplementarias || '',
-                String(record.importeFacturado || 0).replace('.', ','),
-                String(record.valorEstadistico || record.importeFacturado || 0).replace('.', ','),
-                record.nifContraparte || ''
-            ].join(';');
-            csvContent += line + '\n';
+            csvContent += generateAEATLine(record, country, false) + '\n';
+            totalRecords++;
         });
     });
+
+    console.log('📊 CSV consolidado generado:', totalRecords, 'registros');
 
     // Descargar archivo consolidado
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1690,7 +1725,7 @@ function detectNIF(row) {
     link.click();
     document.body.removeChild(link);
     
-    showAlert(`Archivo CSV consolidado AEAT descargado exitosamente`, 'success');
+    alert(`✅ Archivo CSV consolidado AEAT descargado: ${totalRecords} registros`);
 }
 
         // Funciones de utilidad
