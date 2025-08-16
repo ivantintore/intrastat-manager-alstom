@@ -788,43 +788,63 @@
 
         // Gestión de archivos clasificados
         function handleClassifiedFiles(files, type) {
-            try {
-                console.log('handleClassifiedFiles called with:', files.length, 'files, type:', type);
+            console.log('🔥 handleClassifiedFiles called with:', files ? files.length : 'null', 'files, type:', type);
+            
+            if (!files || files.length === 0) {
+                console.log('❌ No files provided');
+                alert('No se seleccionaron archivos');
+                return;
+            }
+            
+            let validFiles = 0;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                console.log('📄 Processing file:', file.name, 'type:', file.type, 'size:', file.size);
                 
-                if (!files || files.length === 0) {
-                    console.log('No files provided');
-                    showAlert('No se seleccionaron archivos', 'error');
-                    return;
-                }
+                // Validación más simple
+                const isValid = file.name.endsWith('.xlsx') || 
+                              file.name.endsWith('.xls') || 
+                              file.name.endsWith('.csv') ||
+                              file.type.includes('spreadsheet') ||
+                              file.type.includes('excel') ||
+                              file.type.includes('csv');
                 
-                let validFiles = 0;
-                Array.from(files).forEach(file => {
-                    console.log('Processing file:', file.name, 'type:', file.type);
-                    if (file.type.includes('sheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
-                        currentMonth.files[type + 's'].push({
-                            name: file.name,
-                            file: file,
-                            uploadTime: new Date().toISOString(),
-                            type: type
-                        });
-                        validFiles++;
-                        console.log('Valid file added:', file.name);
-                    } else {
-                        console.log('Invalid file type:', file.name, file.type);
+                if (isValid) {
+                    console.log('✅ Valid file, adding to', type + 's');
+                    
+                    // Asegurar que la estructura existe
+                    if (!currentMonth.files[type + 's']) {
+                        currentMonth.files[type + 's'] = [];
+                        console.log('📁 Created array for', type + 's');
                     }
-                });
-                
-                console.log('Valid files processed:', validFiles);
-                updateMonthStructure();
-                
-                if (validFiles > 0) {
-                    showAlert(`${validFiles} archivo(s) añadido(s) a ${type === 'export' ? 'Exportaciones' : 'Importaciones'}`, 'success');
+                    
+                    currentMonth.files[type + 's'].push({
+                        name: file.name,
+                        file: file,
+                        uploadTime: new Date().toISOString(),
+                        type: type
+                    });
+                    validFiles++;
+                    console.log('📊 File added successfully. Total files:', currentMonth.files[type + 's'].length);
                 } else {
-                    showAlert('No se encontraron archivos válidos (Excel o CSV)', 'error');
+                    console.log('❌ Invalid file type:', file.name, file.type);
                 }
-            } catch (error) {
-                console.error('Error in handleClassifiedFiles:', error);
-                showAlert('Error al procesar archivos: ' + error.message, 'error');
+            }
+            
+            console.log('🎯 Processing complete. Valid files:', validFiles);
+            
+            // Actualizar interfaz
+            updateMonthStructure();
+            
+            // Mostrar resultado
+            if (validFiles > 0) {
+                const message = `✅ ${validFiles} archivo(s) añadido(s) a ${type === 'export' ? 'Exportaciones' : 'Importaciones'}`;
+                console.log('📢', message);
+                alert(message); // Usar alert simple por ahora
+            } else {
+                const message = '❌ No se encontraron archivos válidos (Excel o CSV)';
+                console.log('📢', message);
+                alert(message);
             }
         }
 

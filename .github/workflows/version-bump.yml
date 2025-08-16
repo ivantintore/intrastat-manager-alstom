@@ -21,7 +21,7 @@ on:
 jobs:
   version-bump:
     runs-on: ubuntu-latest
-    if: github.event.head_commit.author.name != 'GitHub Action'
+    if: ${{ !contains(github.event.head_commit.message, 'Bump version to') }}
     
     steps:
     - name: 📥 Checkout code
@@ -68,5 +68,5 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add Index.html package.json
-        git commit -m "🏷️ Bump version to ${{ steps.bump.outputs.version }}" || exit 0
+        git commit -m "Bump version to ${{ steps.bump.outputs.version }}" || exit 0
         git push
