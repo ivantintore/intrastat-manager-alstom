@@ -1158,47 +1158,51 @@
                 console.log('🔍 Datos brutos del archivo Excel:', rawData.slice(0, 3));
                 
                 const aeatData = rawData.map((row, index) => {
-                    // Detectar país (buscar códigos de 2 letras)
-                    const country = detectCountry(row);
+                    // Mapeo directo basado en la estructura conocida de Alstom
+                    const paisOrigen = row['PAÍS ORIGEN MERCANCÍA (chuleta)'] || row['PAÍS ORIGEN MERCANCÍA'] || 'ES';
+                    const paisDestino = row['PAÍS ENTREGA'] || 'FR';
+                    const importeFacturado = parseFloat(row['BASE IMP. (€)'] || 0);
+                    const pesoTotal = parseFloat(row['PESO TOTAL'] || 0);
+                    const hsCode = row['HS CODE (chuleta)'] || row['HS CODE'] || '85044095';
+                    const nifDestino = row['Nº IVA VIES DESTINATARIO MERCANCÍA.'] || row['Nº IVA VIES DESTINATARIO'] || '';
                     
-                    // Detectar código de mercancía (8 dígitos)
-                    const mercancyCode = detectMercancyCode(row);
+                    // Convertir país a código de 2 letras
+                    const countryMap = {
+                        'Germany': 'DE', 'Estonia': 'EE', 'Lithuania': 'LT', 'Sweden': 'SE',
+                        'France': 'FR', 'Poland': 'PL', 'Italy': 'IT', 'España': 'ES',
+                        'Spain': 'ES', 'China': 'CN'
+                    };
                     
-                    // Detectar valores monetarios
-                    const amount = detectAmount(row);
-                    
-                    // Detectar peso
-                    const weight = detectWeight(row);
-                    
-                    // Detectar NIF de contraparte
-                    const nif = detectNIF(row);
+                    const estadoMiembro = countryMap[paisDestino] || countryMap[paisOrigen] || paisDestino.substring(0, 2).toUpperCase();
+                    const paisOrigenCode = countryMap[paisOrigen] || paisOrigen.substring(0, 2).toUpperCase();
                     
                     if (index < 3) {
-                        console.log(`🔍 Fila ${index}:`, {
+                        console.log(`🔍 Fila ${index} mapeada:`, {
                             raw: row,
-                            country,
-                            mercancyCode,
-                            amount,
-                            weight,
-                            nif
+                            estadoMiembro,
+                            paisOrigenCode,
+                            importeFacturado,
+                            pesoTotal,
+                            hsCode,
+                            nifDestino
                         });
                     }
                     
                     return {
-                        estadoMiembro: country || 'FR', // País destino/origen
-                        provincia: '48', // Bizkaia por defecto
-                        condiciones: 'FCA', // Por defecto
-                        naturaleza: '11', // Por defecto
-                        transporte: '3', // Por defecto
-                        puerto: '', // Vacío por defecto
-                        codigoMercancia: mercancyCode || '85044095',
-                        paisOrigen: 'ES', // España por defecto para exports
-                        regimen: '', // Vacío por defecto
-                        masaNeta: weight || 0,
-                        unidadesSuplementarias: '', // Vacío por defecto
-                        importeFacturado: amount || 0,
-                        valorEstadistico: amount || 0,
-                        nifContraparte: nif || '',
+                        estadoMiembro: estadoMiembro,
+                        provincia: '48', // Bizkaia
+                        condiciones: 'FCA',
+                        naturaleza: '11',
+                        transporte: '3',
+                        puerto: '',
+                        codigoMercancia: hsCode,
+                        paisOrigen: paisOrigenCode,
+                        regimen: '1',
+                        masaNeta: pesoTotal,
+                        unidadesSuplementarias: '0,000',
+                        importeFacturado: importeFacturado,
+                        valorEstadistico: importeFacturado,
+                        nifContraparte: nifDestino,
                         
                         // Campos adicionales para trazabilidad
                         archivoOrigen: file.name,
