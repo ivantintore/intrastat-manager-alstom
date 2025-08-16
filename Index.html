@@ -443,7 +443,7 @@
                     <div class="upload-classification" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                         <!-- Exportaciones -->
                         <div class="upload-zone export-zone" style="border: 3px dashed #27ae60; border-radius: 15px; padding: 30px; background: #f8fff8; text-align: center; cursor: pointer;" 
-                             onclick="document.getElementById('export-files').click()" 
+                             onclick="console.log('Export zone clicked'); const input = document.getElementById('export-files'); console.log('Input element:', input); if(input) input.click(); else console.error('Export input not found on click');" 
                              ondrop="handleClassifiedDrop(event, 'export')" 
                              ondragover="handleDragOver(event)" 
                              ondragleave="handleDragLeave(event)">
@@ -613,13 +613,30 @@
             loadMonthData();
             
             // Event listeners para archivos clasificados
-            document.getElementById('export-files').addEventListener('change', function(e) {
-                handleClassifiedFiles(e.target.files, 'export');
-            });
+            const exportInput = document.getElementById('export-files');
+            const importInput = document.getElementById('import-files');
             
-            document.getElementById('import-files').addEventListener('change', function(e) {
-                handleClassifiedFiles(e.target.files, 'import');
-            });
+            console.log('Setting up file input listeners:', exportInput, importInput);
+            
+            if (exportInput) {
+                exportInput.addEventListener('change', function(e) {
+                    console.log('Export files input changed:', e.target.files);
+                    handleClassifiedFiles(e.target.files, 'export');
+                });
+                console.log('Export listener added successfully');
+            } else {
+                console.error('Export files input not found!');
+            }
+            
+            if (importInput) {
+                importInput.addEventListener('change', function(e) {
+                    console.log('Import files input changed:', e.target.files);
+                    handleClassifiedFiles(e.target.files, 'import');
+                });
+                console.log('Import listener added successfully');
+            } else {
+                console.error('Import files input not found!');
+            }
             
             // Event listener para procesador rápido
             document.getElementById('fileInput').addEventListener('change', function(e) {
