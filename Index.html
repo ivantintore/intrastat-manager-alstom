@@ -1430,7 +1430,7 @@ function detectNIF(row) {
                 <div class="export-section">
                     <h3>📁 Exportar Datos</h3>
                     <button class="btn btn-success btn-large" onclick="exportToExcel('exports')">
-                        📊 Descargar Excel de Exportaciones
+                        📊 Descargar CSV de Exportaciones
                     </button>
                 </div>
             `;
@@ -1489,7 +1489,7 @@ function detectNIF(row) {
                 <div class="export-section">
                     <h3>📁 Exportar Datos</h3>
                     <button class="btn btn-success btn-large" onclick="exportToExcel('imports')">
-                        📊 Descargar Excel de Importaciones
+                        📊 Descargar CSV de Importaciones
                     </button>
                 </div>
             `;
@@ -1640,7 +1640,8 @@ function detectNIF(row) {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `AEAT_${type === 'exports' ? 'Exportaciones' : 'Importaciones'}_${new Date().toISOString().slice(0,10)}.csv`);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    link.setAttribute('download', `AEAT_${type === 'exports' ? 'Exportaciones' : 'Importaciones'}_${timestamp}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -1719,7 +1720,8 @@ function detectNIF(row) {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `AEAT_Consolidado_Intrastat_${new Date().toISOString().slice(0,10)}.csv`);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    link.setAttribute('download', `AEAT_Consolidado_Intrastat_${timestamp}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
