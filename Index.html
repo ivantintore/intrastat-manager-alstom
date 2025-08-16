@@ -1155,7 +1155,9 @@
                 }
                 
                 // Mapear datos al formato AEAT
-                const aeatData = rawData.map(row => {
+                console.log('🔍 Datos brutos del archivo Excel:', rawData.slice(0, 3));
+                
+                const aeatData = rawData.map((row, index) => {
                     // Detectar país (buscar códigos de 2 letras)
                     const country = detectCountry(row);
                     
@@ -1170,6 +1172,17 @@
                     
                     // Detectar NIF de contraparte
                     const nif = detectNIF(row);
+                    
+                    if (index < 3) {
+                        console.log(`🔍 Fila ${index}:`, {
+                            raw: row,
+                            country,
+                            mercancyCode,
+                            amount,
+                            weight,
+                            nif
+                        });
+                    }
                     
                     return {
                         estadoMiembro: country || 'FR', // País destino/origen
