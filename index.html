@@ -381,7 +381,6 @@
             <!-- Pestañas de navegación -->
             <div class="tabs">
                 <div class="tab active" onclick="console.log('Tab clicked: monthly-manager'); switchTab('monthly-manager')">📁 Gestión por Meses</div>
-                <div class="tab" onclick="console.log('Tab clicked: processor'); switchTab('processor')">⚡ Procesador Rápido</div>
                 <div class="tab" onclick="console.log('Tab clicked: exports'); switchTab('exports')">📤 Exportaciones</div>
                 <div class="tab" onclick="console.log('Tab clicked: imports'); switchTab('imports')">📥 Importaciones</div>
                 <div class="tab" onclick="console.log('Tab clicked: summary'); switchTab('summary')">📊 Resumen Final</div>
@@ -521,41 +520,6 @@
                 </div>
             </div>
 
-            <!-- Procesador Rápido (Legacy) -->
-            <div id="processor" class="tab-content">
-                <div class="section">
-                    <h2>⚡ Procesador Rápido</h2>
-                    <div class="alert alert-info">
-                        <strong>💡 Modo rápido para casos urgentes:</strong> Sube archivos sin clasificar para procesamiento inmediato. Para flujos organizados usa "Gestión por Meses".
-                    </div>
-                    
-                    <div class="upload-area" onclick="document.getElementById('fileInput').click()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-                        <div class="upload-icon">📁</div>
-                        <h3>Selecciona o arrastra archivos aquí</h3>
-                        <p>Formatos soportados: Excel (.xlsx, .xls) y CSV</p>
-                        <input type="file" id="fileInput" class="file-input" multiple accept=".xlsx,.xls,.csv">
-                    </div>
-
-                    <div id="fileList" class="file-list" style="display: none;">
-                        <h3>Archivos cargados:</h3>
-                        <div id="fileItems"></div>
-                        <button class="btn btn-large" onclick="processFiles()">🚀 Procesar Archivos</button>
-                    </div>
-
-                    <div id="progressSection" class="progress-section" style="display: none;">
-                        <h3>Procesando archivos...</h3>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progressFill"></div>
-                        </div>
-                        <p id="progressText">Iniciando...</p>
-                    </div>
-
-                    <div id="logSection" style="display: none;">
-                        <h3>Log de procesamiento:</h3>
-                        <div id="logArea" class="log-area"></div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Exportaciones -->
             <div id="exports" class="tab-content">
@@ -1032,39 +996,6 @@
             logArea.scrollTop = logArea.scrollHeight;
         }
 
-        // Procesador rápido (legacy)
-        function handleFiles(files) {
-            const fileItems = document.getElementById('fileItems');
-            fileItems.innerHTML = '';
-            
-            Array.from(files).forEach((file, index) => {
-                if (file.type.includes('sheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'file-item';
-                    fileItem.innerHTML = `
-                        <div class="file-info">
-                            <div class="file-name">📄 ${file.name}</div>
-                            <div class="file-details">Tamaño: ${(file.size / 1024).toFixed(1)} KB | Tipo: ${file.type || 'Desconocido'}</div>
-                        </div>
-                        <button class="btn btn-danger" onclick="removeFile(${index})">❌ Quitar</button>
-                    `;
-                    fileItems.appendChild(fileItem);
-                }
-            });
-            
-            if (fileItems.children.length > 0) {
-                document.getElementById('fileList').style.display = 'block';
-            }
-        }
-
-        function removeFile(index) {
-            const fileItems = document.getElementById('fileItems');
-            fileItems.removeChild(fileItems.children[index]);
-            
-            if (fileItems.children.length === 0) {
-                document.getElementById('fileList').style.display = 'none';
-            }
-        }
 
         async function processFiles() {
             const fileItems = document.getElementById('fileItems');
