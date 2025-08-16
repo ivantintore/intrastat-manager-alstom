@@ -1692,49 +1692,6 @@ function detectNIF(row) {
     
     showAlert(`Archivo CSV consolidado AEAT descargado exitosamente`, 'success');
 }
-            // Metadatos y trazabilidad
-            const metadata = [{
-                'Fecha de Procesamiento': new Date().toLocaleString('es-ES'),
-                'Versión del Sistema': '1.5.2',
-                'Total Archivos Procesados': processedData.exports.length + processedData.imports.length,
-                'Período': currentMonth.month && currentMonth.year ? `${currentMonth.month}/${currentMonth.year}` : 'Múltiples períodos',
-                'Usuario': 'Alstom Movilidad',
-                'Notas': 'Archivo generado automáticamente con trazabilidad completa'
-            }];
-
-            const ws_metadata = XLSX.utils.json_to_sheet(metadata);
-            XLSX.utils.book_append_sheet(wb, ws_metadata, 'Metadatos');
-
-            // Archivo de trazabilidad
-            const traceabilityData = [];
-            processedData.exports.forEach(file => {
-                traceabilityData.push({
-                    'Tipo': 'Exportación',
-                    'Archivo': file.fileName,
-                    'Fecha de Carga': new Date(file.uploadTime).toLocaleString('es-ES'),
-                    'Registros': file.data.length,
-                    'Período': file.month && file.year ? `${file.month}/${file.year}` : 'No especificado'
-                });
-            });
-            processedData.imports.forEach(file => {
-                traceabilityData.push({
-                    'Tipo': 'Importación',
-                    'Archivo': file.fileName,
-                    'Fecha de Carga': new Date(file.uploadTime).toLocaleString('es-ES'),
-                    'Registros': file.data.length,
-                    'Período': file.month && file.year ? `${file.month}/${file.year}` : 'No especificado'
-                });
-            });
-
-            const ws_trace = XLSX.utils.json_to_sheet(traceabilityData);
-            XLSX.utils.book_append_sheet(wb, ws_trace, 'Trazabilidad');
-
-            // Descargar archivo consolidado
-            const fileName = `Intrastat_Consolidado_AEAT_${new Date().toISOString().slice(0,10)}.xlsx`;
-            XLSX.writeFile(wb, fileName);
-            
-            showAlert(`Archivo consolidado ${fileName} descargado exitosamente`, 'success');
-        }
 
         // Funciones de utilidad
         function handleDragOver(event) {
