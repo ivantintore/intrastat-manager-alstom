@@ -48,8 +48,8 @@ jobs:
         echo "=== Starting version bump process ==="
         
         # Verificar que los archivos existen
-        if [ ! -f "Index.html" ]; then
-          echo "ERROR: Index.html not found"
+        if [ ! -f "index.html" ]; then
+          echo "ERROR: index.html not found"
           exit 1
         fi
         
@@ -102,21 +102,21 @@ jobs:
         echo "Updating package.json..."
         sed -i "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW_VERSION\"/" package.json
         
-        # Actualizar Index.html - versión en header
-        echo "Updating Index.html header..."
-        sed -i "s/app-version\">$CURRENT</app-version\">$NEW_VERSION</" Index.html
+        # Actualizar index.html - versión en header
+        echo "Updating index.html header..."
+        sed -i "s/app-version\">$CURRENT</app-version\">$NEW_VERSION</" index.html
         
-        # Actualizar Index.html - versión en metadatos
-        echo "Updating Index.html metadata..."
-        sed -i "s/'Versión del Sistema': '$CURRENT'/'Versión del Sistema': '$NEW_VERSION'/" Index.html
+        # Actualizar index.html - versión en metadatos
+        echo "Updating index.html metadata..."
+        sed -i "s/'Versión del Sistema': '$CURRENT'/'Versión del Sistema': '$NEW_VERSION'/" index.html
         
         # Verificar que los cambios se aplicaron
         NEW_PKG_VERSION=$(grep -o '"version": "[^"]*"' package.json | sed 's/"version": "//' | sed 's/"//')
-        NEW_HTML_VERSION=$(grep -o 'app-version">[^<]*' Index.html | sed 's/app-version">//')
+        NEW_HTML_VERSION=$(grep -o 'app-version">[^<]*' index.html | sed 's/app-version">//')
         
         echo "Verification:"
         echo "  package.json version: $NEW_PKG_VERSION"
-        echo "  Index.html version: $NEW_HTML_VERSION"
+        echo "  index.html version: $NEW_HTML_VERSION"
         
         if [ "$NEW_PKG_VERSION" != "$NEW_VERSION" ] || [ "$NEW_HTML_VERSION" != "$NEW_VERSION" ]; then
           echo "ERROR: Version update failed"
@@ -135,7 +135,7 @@ jobs:
         fi
         
         # Hacer commit y push
-        git add Index.html package.json
+        git add index.html package.json
         git commit -m "🔖 Bump version to ${{ steps.bump.outputs.version }}"
         
         # Intentar push con retry
