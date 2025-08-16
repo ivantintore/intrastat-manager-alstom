@@ -1,6 +1,17 @@
 {
   "public": ".",
   "rewrites": [
-    { "source": "**", "destination": "/Index.html" }
+    { "source": "**", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "**/*.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
   ]
 }
