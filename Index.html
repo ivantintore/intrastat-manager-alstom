@@ -590,6 +590,36 @@
     </div>
 
     <script>
+        // Gestión de pestañas - DEFINIR PRIMERO
+        function switchTab(tabName) {
+            try {
+                console.log('switchTab called with:', tabName);
+                
+                // Ocultar todas las pestañas
+                const tabs = document.querySelectorAll('.tab');
+                const contents = document.querySelectorAll('.tab-content');
+                
+                tabs.forEach(tab => tab.classList.remove('active'));
+                contents.forEach(content => content.classList.remove('active'));
+                
+                // Mostrar la pestaña seleccionada
+                const targetTab = document.querySelector(`[onclick*="${tabName}"]`);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                }
+                
+                const targetContent = document.getElementById(tabName);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                    console.log('Tab switched successfully to:', tabName);
+                } else {
+                    console.error('Tab content not found:', tabName);
+                }
+            } catch (error) {
+                console.error('Error in switchTab:', error);
+            }
+        }
+
         // Variables globales
         let processedData = {
             exports: [],
@@ -693,35 +723,6 @@
             }
         }
 
-        // Gestión de pestañas
-        function switchTab(tabName) {
-            try {
-                console.log('switchTab called with:', tabName);
-                
-                // Ocultar todas las pestañas
-                const tabs = document.querySelectorAll('.tab');
-                const contents = document.querySelectorAll('.tab-content');
-                
-                tabs.forEach(tab => tab.classList.remove('active'));
-                contents.forEach(content => content.classList.remove('active'));
-                
-                // Mostrar la pestaña seleccionada
-                const targetTab = document.querySelector(`[onclick*="${tabName}"]`);
-                if (targetTab) {
-                    targetTab.classList.add('active');
-                }
-                
-                const targetContent = document.getElementById(tabName);
-                if (targetContent) {
-                    targetContent.classList.add('active');
-                    console.log('Tab switched successfully to:', tabName);
-                } else {
-                    console.error('Tab content not found:', tabName);
-                }
-            } catch (error) {
-                console.error('Error in switchTab:', error);
-            }
-        }
 
         // Gestión de meses
         function loadMonthData() {
