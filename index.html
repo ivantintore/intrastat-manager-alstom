@@ -1626,20 +1626,11 @@ function detectNIF(row) {
             const masaNeta = (record.masaNeta || 0).toFixed(3).replace('.', ',');
             const unidadesSuplementarias = '0,000'; // Siempre 0,000
             
-            // Para importaciones: valores NEGATIVOS, para exportaciones: POSITIVOS
-            let importeFacturado = record.importeFacturado || 0;
-            let valorEstadistico = record.valorEstadistico || record.importeFacturado || 0;
+            // Mantener signo original: positivo (factura normal) o negativo (anulación/corrección)
+            const importeFacturado = record.importeFacturado || 0;
+            const valorEstadistico = record.valorEstadistico || record.importeFacturado || 0;
             
-            if (type === 'imports') {
-                // Importaciones: valores negativos (flujo de entrada a España)
-                importeFacturado = -Math.abs(importeFacturado);
-                valorEstadistico = -Math.abs(valorEstadistico);
-            } else {
-                // Exportaciones: valores positivos (flujo de salida de España)  
-                importeFacturado = Math.abs(importeFacturado);
-                valorEstadistico = Math.abs(valorEstadistico);
-            }
-            
+            // Formatear con coma decimal manteniendo el signo original
             const importeFacturadoStr = importeFacturado.toFixed(2).replace('.', ',');
             const valorEstadisticoStr = valorEstadistico.toFixed(2).replace('.', ',');
             const nifContraparte = record.nifContraparte || '';
