@@ -362,9 +362,14 @@
                         📦 v<span id="app-version">1.5.0</span>
                     </span>
                 </div>
-                <div id="deployment-info" style="text-align: right;">
+                <div id="deployment-info" style="text-align: right; margin-bottom: 5px;">
                     <span id="deployment-status" style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 12px; display: inline-block;">
                         🚀 <span id="deployment-time">Activo</span>
+                    </span>
+                </div>
+                <div id="railway-info" style="text-align: right;">
+                    <span id="railway-status" style="background: rgba(46,204,113,0.2); padding: 4px 8px; border-radius: 12px; display: inline-block; border: 1px solid rgba(46,204,113,0.4);">
+                        🚂 Railway: v<span id="railway-version">1.5.0</span>
                     </span>
                 </div>
             </div>
@@ -636,8 +641,38 @@
                 if (element) {
                     element.textContent = deploymentTime;
                 }
+                
+                // Actualizar información de Railway
+                updateRailwayStatus();
             } catch (error) {
                 console.log('Error updating deployment info:', error);
+            }
+        }
+        
+        function updateRailwayStatus() {
+            try {
+                // Obtener versión actual del DOM
+                const currentVersion = document.getElementById('app-version').textContent;
+                const railwayVersionElement = document.getElementById('railway-version');
+                const railwayStatusElement = document.getElementById('railway-status');
+                
+                if (railwayVersionElement) {
+                    railwayVersionElement.textContent = currentVersion;
+                }
+                
+                // Generar timestamp único para detectar despliegue
+                const deploymentId = new Date().getTime().toString().slice(-6);
+                
+                // Indicar que es la versión actualmente desplegada
+                if (railwayStatusElement) {
+                    railwayStatusElement.style.background = 'rgba(46,204,113,0.3)';
+                    railwayStatusElement.style.border = '1px solid rgba(46,204,113,0.6)';
+                    railwayStatusElement.innerHTML = `🚂 Railway: v${currentVersion} <small>(#${deploymentId})</small>`;
+                }
+                
+                console.log('Railway status updated:', currentVersion, deploymentId);
+            } catch (error) {
+                console.log('Error updating Railway status:', error);
             }
         }
 
