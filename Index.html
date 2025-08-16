@@ -1,1110 +1,4 @@
-<div class="summary-card">
-                            <h3>Países Únicos</h3>
-                            <div class="summary-value" id="total-countries">0</div>
-                            <div class="summary-label">países comercio</div>
-                        </div>
-                    </div>
-
-                    <div class="export-section">
-                        <h3>🎯 Generar Archivos AEAT</h3>
-                        <p>Descarga los archivos CSV listos para subir a la AEAT</p>
-                        
-                        <div style="margin-top: 20px;">
-                            <button class="btn btn-success btn-large" id="download-exports" onclick="downloadExports()" disabled>
-                                📤 Descargar Exportaciones AEAT
-                            </button>
-                            <button class="btn btn-success btn-large" id="download-imports" onclick="downloadImports()" disabled>
-                                📥 Descargar Importaciones AEAT
-                            </button>
-                        </div>
-                        
-                        <div style="margin-top: 20px;">
-                            <button class="btn btn-large" onclick="downloadConsolidatedReport()" disabled id="download-report">
-                                📋 Descargar Informe Consolidado
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="country-breakdown-section" style="display: none;">
-                        <h3>Desglose por Países:</h3>
-                        <div id="country-breakdown" class="country-breakdown"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Variables globales ampliadas
-        let exportData = [];
-        let importData = [];
-        let processedFiles = [];
-        let currentTab = 'monthly-manager';
-        
-        // Sistema de gestión por meses
-        let monthlyData = {
-            currentMonth: '06',
-            currentYear: '2025',
-            folders: {}
-        };
-
-        // Inicializar la aplicación
-        document.addEventListener('DOMContentLoaded', function() {
-            setupEventListeners();
-            initializeMonthlySystem();
-            logMessage('Sistema inicializado. Listo para procesar archivos de Alstom.');
-            // Mostrar información de deployment
-            updateDeploymentInfo();
-        });
-
-        function setupEventListeners() {
-            // Procesador rápido (legacy)
-            document.getElementById('main-files').addEventListener('change', handleFileSelect);
-            
-            // Gestión por meses
-            document.getElementById('export-files').addEventListener('change', (e) => handleClassifiedFileSelect(e, 'export'));
-            document.getElementById('import-files').addEventListener('change', (e) => handleClassifiedFileSelect(e, 'import'));
-            
-            // Drag and drop para procesador rápido
-            const uploadArea = document.getElementById('main-upload');
-            if (uploadArea) {
-                uploadArea.addEventListener('drop', handleDrop);
-                uploadArea.addEventListener('dragover', handleDragOver);
-                uploadArea.addEventListener('dragleave', handleDragLeave);
-            }
-        }
-
-        function initializeMonthlySystem() {
-            loadMonthData();
-            updateFolderDisplay();
-        }
-
-        function loadMonthData() {
-            const month = document.getElementById('month-select').value;
-            const year = document.getElementById('year-select').value;
-            
-            monthlyData.currentMonth = month;
-            monthlyData.currentYear = year;
-            
-            const monthNames = {
-                '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
-                '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
-                '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
-            };
-            
-            const monthKey = `${year}-${month}`;
-            
-            // Inicializar estructura del mes si no existe
-            if (!monthlyData.folders[monthKey]) {
-                monthlyData.folders[monthKey] = {
-                    exports: [],
-                    imports: []
-                };
-            }
-            
-            // Actualizar display
-            document.getElementById('current-month-display').innerHTML = 
-                `<strong>📁 Trabajando en: ${monthNames[month]} ${year}</strong>`;
-            document.getElementById('folder-title').textContent = `${monthNames[month]} ${year}`;
-            
-            updateFolderDisplay();
-            monthLogMessage(`📁 Cargado período: ${monthNames[month]} ${year}`);
-        }
-
-        function handleClassifiedFileSelect(event, type) {
-            const files = event.target.files;
-            if (files.length > 0) {
-                addFilesToMonth(files, type);
-            }
-        }
-
-        function handleClassifiedDrop(event, type) {
-            event.preventDefault();
-            event.currentTarget.classList.remove('dragover');
-            const files = event.dataTransfer.files;
-            if (files.length > 0) {
-                addFilesToMonth(files, type);
-            }
-        }
-
-        async function addFilesToMonth(files, type) {
-            const monthKey = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
-            const typeKey = type + 's'; // 'export' -> 'exports', 'import' -> 'imports'
-            
-            monthLogMessage(`📁 Agregando ${files.length} archivo(s) a ${type === 'export' ? 'Exportaciones' : 'Importaciones'}...`);
-            
-            for (let file of files) {
-                // Leer contenido del archivo para guardarlo
-                const fileData = await readFileAsDataURL(file);
-                
-                const fileInfo = {
-                    name: file.name,
-                    size: file.size,
-                    type: file.type,
-                    uploadedAt: new Date(),
-                    content: fileData,
-                    classification: type
-                };
-                
-                monthlyData.folders[monthKey][typeKey].push(fileInfo);
-                monthLogMessage(`✅ Agregado: ${file.name} (${(file.size/1024).toFixed(1)} KB)`);
-            }
-            
-            updateFolderDisplay();
-            
-            // Limpiar inputs
-            document.getElementById('export-files').value = '';
-            document.getElementById('import-files').value = '';
-        }
-
-        function readFileAsDataURL(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-
-        function updateFolderDisplay() {
-            const monthKey = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
-            const monthData = monthlyData.folders[monthKey] || { exports: [], imports: [] };
-            
-            // Actualizar contadores
-            document.getElementById('export-count').textContent = `${monthData.exports.length} archivo${monthData.exports.length !== 1 ? 's' : ''}`;
-            document.getElementById('import-count').textContent = `${monthData.imports.length} archivo${monthData.imports.length !== 1 ? 's' : ''}`;
-            
-            // Actualizar listas de archivos
-            updateFileList('export-files-list', monthData.exports, 'export');
-            updateFileList('import-files-list', monthData.imports, 'import');
-            
-            // Habilitar botón de procesamiento si hay archivos
-            const hasFiles = monthData.exports.length > 0 || monthData.imports.length > 0;
-            document.getElementById('process-month-btn').disabled = !hasFiles;
-        }
-
-        function updateFileList(containerId, files, type) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            
-            files.forEach((file, index) => {
-                const fileElement = document.createElement('div');
-                fileElement.style.cssText = 'display: flex; align-items: center; padding: 5px; margin: 2px 0; background: white; border-radius: 5px; font-size: 0.85em;';
-                
-                const iconColor = type === 'export' ? '#27ae60' : '#e74c3c';
-                
-                fileElement.innerHTML = `
-                    <span style="color: ${iconColor};">📄</span>
-                    <span style="margin-left: 8px; flex: 1;">${file.name}</span>
-                    <span style="color: #666; font-size: 0.8em;">${(file.size/1024).toFixed(1)} KB</span>
-                    <button onclick="removeFileFromMonth('${type}', ${index})" style="margin-left: 8px; background: #e74c3c; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 0.7em;">✕</button>
-                `;
-                
-                container.appendChild(fileElement);
-            });
-            
-            if (files.length === 0) {
-                container.innerHTML = '<div style="color: #999; font-style: italic; padding: 10px;">No hay archivos</div>';
-            }
-        }
-
-        function removeFileFromMonth(type, index) {
-            const monthKey = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
-            const typeKey = type + 's';
-            
-            const fileName = monthlyData.folders[monthKey][typeKey][index].name;
-            monthlyData.folders[monthKey][typeKey].splice(index, 1);
-            
-            monthLogMessage(`🗑️ Eliminado: ${fileName}`);
-            updateFolderDisplay();
-        }
-
-        async function processCurrentMonth() {
-            const monthKey = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
-            const monthData = monthlyData.folders[monthKey];
-            
-            if (!monthData || (monthData.exports.length === 0 && monthData.imports.length === 0)) {
-                alert('No hay archivos para procesar en este mes.');
-                return;
-            }
-            
-            showMonthProgress();
-            monthLogMessage('🚀 Iniciando procesamiento del mes completo...');
-            
-            // Limpiar datos anteriores
-            exportData = [];
-            importData = [];
-            processedFiles = [];
-            
-            let totalFiles = monthData.exports.length + monthData.imports.length;
-            let processedCount = 0;
-            
-            // Procesar exportaciones
-            for (let fileInfo of monthData.exports) {
-                try {
-                    monthLogMessage(`📤 Procesando exportación: ${fileInfo.name}`);
-                    updateMonthProgress((processedCount / totalFiles) * 100, `Procesando ${fileInfo.name}...`);
-                    
-                    const file = await dataURLToFile(fileInfo.content, fileInfo.name, fileInfo.type);
-                    const result = await processFile(file);
-                    
-                    if (result) {
-                        // Forzar clasificación como exportación
-                        result.type = 'export';
-                        result.monthSource = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
-                        
-                        processedFiles.push({
-                            name: fileInfo.name,
-                            size: fileInfo.size,
-                            type: 'export',
-                            recordCount: result.recordCount,
-                            processedAt: new Date(),
-                            monthSource: result.monthSource
-                        });
-                        
-                        exportData = exportData.concat(result.data);
-                        monthLogMessage(`✅ ${fileInfo.name}: ${result.recordCount} registros como exportación`);
-                    }
-                } catch (error) {
-                    monthLogMessage(`❌ Error procesando ${fileInfo.name}: ${error.message}`);
-                }
-                processedCount++;
-            }
-            
-            // Procesar importaciones
-            for (let fileInfo of monthData.imports) {
-                try {
-                    monthLogMessage(`📥 Procesando importación: ${fileInfo.name}`);
-                    updateMonthProgress((processedCount / totalFiles) * 100, `Procesando ${fileInfo.name}...`);
-                    
-                    const file = await dataURLToFile(fileInfo.content, fileInfo.name, fileInfo.type);
-                    const result = await processFile(file);
-                    
-                    if (result) {
-                        // Forzar clasificación como importación
-                        result.type = 'import';
-                        result.monthSource = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
-                        
-                        processedFiles.push({
-                            name: fileInfo.name,
-                            size: fileInfo.size,
-                            type: 'import',
-                            recordCount: result.recordCount,
-                            processedAt: new Date(),
-                            monthSource: result.monthSource
-                        });
-                        
-                        importData = importData.concat(result.data);
-                        monthLogMessage(`✅ ${fileInfo.name}: ${result.recordCount} registros como importación`);
-                    }
-                } catch (error) {
-                    monthLogMessage(`❌ Error procesando ${fileInfo.name}: ${error.message}`);
-                }
-                processedCount++;
-            }
-            
-            updateMonthProgress(100, 'Procesamiento del mes completado');
-            updateSummaries();
-            showProcessedFiles();
-            enableDownloads();
-            
-            monthLogMessage(`🎉 Mes procesado completamente. Total: ${exportData.length} exportaciones, ${importData.length} importaciones`);
-            
-            // Cambiar a pestaña de resumen
-            switchTab('summary');
-        }
-
-        function dataURLToFile(dataURL, filename, mimeType) {
-            return new Promise((resolve) => {
-                const byteString = atob(dataURL.split(',')[1]);
-                const arrayBuffer = new ArrayBuffer(byteString.length);
-                const uint8Array = new Uint8Array(arrayBuffer);
-                
-                for (let i = 0; i < byteString.length; i++) {
-                    uint8Array[i] = byteString.charCodeAt(i);
-                }
-                
-                const blob = new Blob([uint8Array], { type: mimeType });
-                const file = new File([blob], filename, { type: mimeType });
-                resolve(file);
-            });
-        }
-
-        function showMonthProgress() {
-            document.getElementById('month-progress-section').style.display = 'block';
-            document.getElementById('month-log-section').style.display = 'block';
-        }
-
-        function updateMonthProgress(percentage, message) {
-            document.getElementById('month-progress-fill').style.width = percentage + '%';
-            document.getElementById('month-progress-text').textContent = message;
-        }
-
-        function monthLogMessage(message) {
-            const logArea = document.getElementById('month-log-area');
-            const timestamp = new Date().toLocaleTimeString();
-            logArea.innerHTML += `[${timestamp}] ${message}\n`;
-            logArea.scrollTop = logArea.scrollHeight;
-            
-            // También enviarlo al log principal para backward compatibility
-            logMessage(message);
-        }
-
-        function switchTab(tabName) {
-            // Ocultar todas las pestañas
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            
-            // Ocultar todos los botones de pestaña
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Mostrar la pestaña seleccionada
-            document.getElementById(tabName).classList.add('active');
-            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
-            
-            currentTab = tabName;
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.currentTarget.classList.add('dragover');
-        }
-
-        function handleDragLeave(e) {
-            e.currentTarget.classList.remove('dragover');
-        }
-
-        function handleDrop(e) {
-            e.preventDefault();
-            e.currentTarget.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            processFiles(files);
-        }
-
-        function handleFileSelect(e) {
-            const files = e.target.files;
-            processFiles(files);
-        }
-
-        async function processFiles(files) {
-            if (files.length === 0) return;
-
-            showProgress();
-            logMessage(`Iniciando procesamiento de ${files.length} archivo(s)...`);
-
-            let totalFiles = files.length;
-            let processedCount = 0;
-
-            for (let file of files) {
-                try {
-                    logMessage(`Procesando: ${file.name}`);
-                    updateProgress((processedCount / totalFiles) * 100, `Procesando ${file.name}...`);
-
-                    const result = await processFile(file);
-                    if (result) {
-                        processedFiles.push({
-                            name: file.name,
-                            size: file.size,
-                            type: result.type,
-                            recordCount: result.recordCount,
-                            processedAt: new Date()
-                        });
-                        
-                        if (result.type === 'export') {
-                            exportData = exportData.concat(result.data);
-                        } else if (result.type === 'import') {
-                            importData = importData.concat(result.data);
-                        }
-                        
-                        logMessage(`✅ ${file.name}: ${result.recordCount} registros procesados como ${result.type}`);
-                    }
-                } catch (error) {
-                    logMessage(`❌ Error procesando ${file.name}: ${error.message}`);
-                }
-                
-                processedCount++;
-            }
-
-            updateProgress(100, 'Procesamiento completado');
-            updateSummaries();
-            showProcessedFiles();
-            enableDownloads();
-            
-            logMessage(`🎉 Procesamiento completado. Total: ${exportData.length} exportaciones, ${importData.length} importaciones`);
-        }
-
-        async function processFile(file) {
-            const fileName = file.name.toLowerCase();
-            
-            if (fileName.endsWith('.csv')) {
-                return await processCSVFile(file);
-            } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-                return await processExcelFile(file);
-            } else {
-                throw new Error('Formato de archivo no soportado');
-            }
-        }
-
-        async function processCSVFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const text = e.target.result;
-                        const lines = text.split('\n').filter(line => line.trim());
-                        
-                        // Detectar si es un archivo ya procesado (formato AEAT) o raw
-                        const firstLine = lines[0];
-                        const isAEATFormat = firstLine.split(';').length >= 14;
-                        
-                        let data = [];
-                        let type = 'unknown';
-                        
-                        if (isAEATFormat) {
-                            // Ya está en formato AEAT, solo clasificar
-                            data = lines.map((line, index) => {
-                                const fields = line.split(';');
-                                return mapAEATFields(fields, index, file.name);
-                            }).filter(item => item !== null);
-                            
-                            type = determineTradeType(data);
-                        } else {
-                            // Formato raw de Alstom, necesita procesamiento
-                            data = processRawCSVData(lines, file.name);
-                            type = determineTradeType(data);
-                        }
-                        
-                        resolve({
-                            type: type,
-                            data: data,
-                            recordCount: data.length
-                        });
-                    } catch (error) {
-                        reject(error);
-                    }
-                };
-                reader.onerror = () => reject(new Error('Error leyendo archivo CSV'));
-                reader.readAsText(file);
-            });
-        }
-
-        // Función para determinar tipo de comercio - DEBE IR ANTES DE processExcelFile
-        function determineTradeType(data) {
-            if (data.length === 0) return 'unknown';
-            
-            // Contar exportaciones vs importaciones
-            let exportCount = 0;
-            let importCount = 0;
-            
-            data.forEach(item => {
-                if (item && item.paisOrigen === 'ES' && item.estadoMiembro !== 'ES') {
-                    exportCount++;
-                } else if (item && item.paisOrigen !== 'ES' && item.estadoMiembro !== 'ES') {
-                    importCount++;
-                }
-            });
-            
-            console.log(`Debug: exportCount=${exportCount}, importCount=${importCount}, total=${data.length}`);
-            
-            // Si más del 50% son exportaciones, clasificar como export
-            return exportCount > importCount ? 'export' : 'import';
-        }
-
-        async function processExcelFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        
-                        // Procesar la primera hoja
-                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                        
-                        // Procesar datos basándose en la estructura detectada
-                        const processedData = processExcelData(jsonData, file.name);
-                        const type = determineTradeType(processedData);
-                        
-                        resolve({
-                            type: type,
-                            data: processedData,
-                            recordCount: processedData.length
-                        });
-                    } catch (error) {
-                        reject(error);
-                    }
-                };
-                reader.onerror = () => reject(new Error('Error leyendo archivo Excel'));
-                reader.readAsArrayBuffer(file);
-            });
-        }
-
-        function processExcelData(jsonData, fileName) {
-            // Filtrar filas vacías y encontrar la fila de cabeceras
-            const nonEmptyRows = jsonData.filter(row => row && row.some(cell => cell !== null && cell !== undefined && cell !== ''));
-            
-            if (nonEmptyRows.length === 0) return [];
-            
-            // Para el formato específico de Alstom, los datos empiezan en la fila 1
-            // Fila 0 = cabeceras: FACTURA|FECHA|ART|REF|DESC|CANT|IMPORTE|PESO_UD|peso|PESO_TOTAL|HS_CODE|INCOTERM|TRANSPORTE|PAIS_ORIGEN|NIF_VIES|PAIS_ENTREGA
-            const dataRows = nonEmptyRows.slice(1);
-            
-            return dataRows.map((row, index) => {
-                return mapExcelRowToIntrastat(row, index, fileName);
-            }).filter(item => item !== null);
-        }
-
-        // FUNCIÓN CORREGIDA PARA MAPEO DE EXCEL A INTRASTAT
-        function mapExcelRowToIntrastat(row, index, fileName) {
-            // Si la fila está vacía o no tiene suficientes datos, saltarla
-            if (!row || row.length < 15) return null;
-            
-            // Mapeo específico para el formato de Alstom Intrastat
-            // Basado en la estructura: FACTURA|FECHA|ART|REF|DESC|CANT|IMPORTE|PESO_UD|peso|PESO_TOTAL|HS_CODE|INCOTERM|TRANSPORTE|PAIS_ORIGEN|NIF_VIES|PAIS_ENTREGA
-            
-            const estadoMiembro = getCountryCode(row[15]); // PAÍS ENTREGA
-            const paisOrigen = getCountryCode(row[13]);    // PAÍS ORIGEN MERCANCÍA
-            const codMercancia = cleanHSCode(row[10]);     // HS CODE
-            const importeFactura = parseFloat(row[6]) || 0; // BASE IMP (mantener signo original)
-            const masaNeta = Math.abs(parseFloat(row[9]) || 0);       // PESO TOTAL (valor absoluto)
-            const nifContraparte = row[14] ? row[14].toString().trim() : ''; // NIF VIES
-            
-            // Validar que tenemos datos mínimos requeridos
-            if (!estadoMiembro || !codMercancia || importeFactura === 0) {
-                return null;
-            }
-            
-            // Determinar si es exportación o importación
-            // Si el país de entrega es diferente a España y el origen es España -> Exportación
-            // Si el país de origen es diferente a España -> Importación
-            const isExport = (paisOrigen === 'ES' || paisOrigen === '') && estadoMiembro !== 'ES';
-            
-            return {
-                estadoMiembro: estadoMiembro,
-                provincia: '48', // Bizkaia por defecto para Alstom
-                condEntrega: row[11] ? row[11].toString().trim() : 'FCA',
-                natTrans: '11', // Compra/venta definitiva
-                modoTransporte: getModoTransporte(row[12]), // Mapear modo de transporte
-                puerto: '', // Vacío por defecto
-                codMercancia: codMercancia,
-                paisOrigen: paisOrigen || 'ES', // Si no hay país origen, asumir España
-                regEstadistico: '1',
-                masaNeta: masaNeta,
-                unidSuplementaria: 0,
-                importeFactura: importeFactura,
-                valorEstadistico: importeFactura, // Mismo valor que factura
-                nifContraparte: nifContraparte,
-                origen: fileName,
-                lineaOriginal: index + 1,
-                tipoOperacion: isExport ? 'export' : 'import' // Para debugging
-            };
-        }
-
-        function getCountryCode(countryName) {
-            if (!countryName) return '';
-            
-            const name = countryName.toString().toLowerCase().trim();
-            
-            // Mapeo de nombres de países a códigos ISO
-            const countryMap = {
-                'francia': 'FR',
-                'france': 'FR',
-                'alemania': 'DE',
-                'germany': 'DE',
-                'deutschland': 'DE',
-                'estonia': 'EE',
-                'lituania': 'LT',
-                'lithuania': 'LT',
-                'italia': 'IT',
-                'italy': 'IT',
-                'países bajos': 'NL',
-                'netherlands': 'NL',
-                'holanda': 'NL',
-                'bélgica': 'BE',
-                'belgium': 'BE',
-                'portugal': 'PT',
-                'hungría': 'HU',
-                'hungary': 'HU',
-                'polonia': 'PL',
-                'poland': 'PL',
-                'suecia': 'SE',
-                'sweden': 'SE',
-                'dinamarca': 'DK',
-                'denmark': 'DK',
-                'finlandia': 'FI',
-                'finland': 'FI',
-                'austria': 'AT',
-                'república checa': 'CZ',
-                'czech republic': 'CZ',
-                'eslovaquia': 'SK',
-                'slovakia': 'SK',
-                'eslovenia': 'SI',
-                'slovenia': 'SI',
-                'croacia': 'HR',
-                'croatia': 'HR',
-                'bulgaria': 'BG',
-                'rumanía': 'RO',
-                'romania': 'RO',
-                'españa': 'ES',
-                'spain': 'ES'
-            };
-            
-            return countryMap[name] || '';
-        }
-
-        function cleanHSCode(code) {
-            if (!code) return '';
-            
-            // Limpiar código HS: quitar puntos, espacios y normalizar
-            return code.toString()
-                .replace(/\./g, '') // Quitar puntos
-                .replace(/\s/g, '') // Quitar espacios
-                .padEnd(8, '0')     // Asegurar 8 dígitos
-                .substring(0, 8);   // Máximo 8 dígitos
-        }
-
-        function getModoTransporte(transporte) {
-            if (!transporte) return '3'; // Carretera por defecto
-            
-            const modo = transporte.toString().toLowerCase();
-            
-            const transporteMap = {
-                'carretera': '3',
-                'road': '3',
-                'marítimo': '1',
-                'sea': '1',
-                'ferrocarril': '2',
-                'rail': '2',
-                'aéreo': '4',
-                'air': '4',
-                'correos': '5',
-                'mail': '5'
-            };
-            
-            return transporteMap[modo] || '3'; // Carretera por defecto
-        }
-
-        function mapAEATFields(fields, index, fileName) {
-            if (fields.length < 14) return null;
-            
-            return {
-                estadoMiembro: fields[0] || '',
-                provincia: fields[1] || '48',
-                condEntrega: fields[2] || 'FCA',
-                natTrans: fields[3] || '11',
-                modoTransporte: fields[4] || '3',
-                puerto: fields[5] || '',
-                codMercancia: fields[6] || '',
-                paisOrigen: fields[7] || '',
-                regEstadistico: fields[8] || '1',
-                masaNeta: parseFloat(fields[9]) || 0,
-                unidSuplementaria: parseFloat(fields[10]) || 0,
-                importeFactura: parseFloat(fields[11]) || 0,
-                valorEstadistico: parseFloat(fields[12]) || 0,
-                nifContraparte: fields[13] || '',
-                origen: fileName,
-                lineaOriginal: index + 1
-            };
-        }
-
-        function processRawCSVData(lines, fileName) {
-            return lines.map((line, index) => {
-                const fields = line.split(';');
-                if (fields.length < 5) return null;
-                
-                return mapExcelRowToIntrastat(fields, index, fileName);
-            }).filter(item => item !== null);
-        }
-
-        function updateSummaries() {
-            updateExportSummary();
-            updateImportSummary();
-            updateFinalSummary();
-        }
-
-        function updateExportSummary() {
-            if (exportData.length === 0) return;
-            
-            const totalRecords = exportData.length;
-            const totalValue = exportData.reduce((sum, item) => sum + item.importeFactura, 0);
-            const totalWeight = exportData.reduce((sum, item) => sum + item.masaNeta, 0);
-            const countries = [...new Set(exportData.map(item => item.estadoMiembro))];
-            
-            document.getElementById('export-total-records').textContent = totalRecords.toLocaleString();
-            document.getElementById('export-total-value').textContent = `€${totalValue.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
-            document.getElementById('export-countries').textContent = countries.length;
-            document.getElementById('export-total-weight').textContent = `${totalWeight.toLocaleString('es-ES', {minimumFractionDigits: 0})} kg`;
-            
-            // Mostrar tabla de datos
-            showExportData();
-        }
-
-        function updateImportSummary() {
-            if (importData.length === 0) return;
-            
-            const totalRecords = importData.length;
-            const totalValue = importData.reduce((sum, item) => sum + item.importeFactura, 0);
-            const totalWeight = importData.reduce((sum, item) => sum + item.masaNeta, 0);
-            const countries = [...new Set(importData.map(item => item.estadoMiembro))];
-            
-            document.getElementById('import-total-records').textContent = totalRecords.toLocaleString();
-            document.getElementById('import-total-value').textContent = `€${totalValue.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
-            document.getElementById('import-countries').textContent = countries.length;
-            document.getElementById('import-total-weight').textContent = `${totalWeight.toLocaleString('es-ES', {minimumFractionDigits: 0})} kg`;
-            
-            // Mostrar tabla de datos
-            showImportData();
-        }
-
-        function updateFinalSummary() {
-            const totalRecords = exportData.length + importData.length;
-            const totalValue = exportData.reduce((sum, item) => sum + item.importeFactura, 0) + 
-                              importData.reduce((sum, item) => sum + item.importeFactura, 0);
-            const totalFiles = processedFiles.length;
-            const allCountries = [...new Set([
-                ...exportData.map(item => item.estadoMiembro),
-                ...importData.map(item => item.estadoMiembro)
-            ])];
-            
-            document.getElementById('total-records').textContent = totalRecords.toLocaleString();
-            document.getElementById('total-trade-value').textContent = `€${totalValue.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
-            document.getElementById('total-files').textContent = totalFiles;
-            document.getElementById('total-countries').textContent = allCountries.length;
-            
-            // Mostrar desglose por países
-            showCountryBreakdown(allCountries);
-        }
-
-        function showExportData() {
-            const table = document.getElementById('export-data-table').getElementsByTagName('tbody')[0];
-            table.innerHTML = '';
-            
-            const dataToShow = exportData.slice(0, 100); // Primeros 100 registros
-            
-            dataToShow.forEach(item => {
-                const row = table.insertRow();
-                row.innerHTML = `
-                    <td>${item.estadoMiembro}</td>
-                    <td>${item.provincia}</td>
-                    <td>${item.condEntrega}</td>
-                    <td>${item.natTrans}</td>
-                    <td>${item.modoTransporte}</td>
-                    <td>${item.puerto}</td>
-                    <td>${item.codMercancia}</td>
-                    <td>${item.paisOrigen}</td>
-                    <td>${item.regEstadistico}</td>
-                    <td>${item.masaNeta.toLocaleString('es-ES', {minimumFractionDigits: 3})}</td>
-                    <td>${item.unidSuplementaria.toLocaleString('es-ES', {minimumFractionDigits: 3})}</td>
-                    <td>€${item.importeFactura.toLocaleString('es-ES', {minimumFractionDigits: 2})}</td>
-                    <td>€${item.valorEstadistico.toLocaleString('es-ES', {minimumFractionDigits: 2})}</td>
-                    <td>${item.nifContraparte}</td>
-                    <td>${item.origen}</td>
-                `;
-            });
-            
-            document.getElementById('export-data-section').style.display = 'block';
-        }
-
-        function showImportData() {
-            const table = document.getElementById('import-data-table').getElementsByTagName('tbody')[0];
-            table.innerHTML = '';
-            
-            const dataToShow = importData.slice(0, 100); // Primeros 100 registros
-            
-            dataToShow.forEach(item => {
-                const row = table.insertRow();
-                row.innerHTML = `
-                    <td>${item.estadoMiembro}</td>
-                    <td>${item.provincia}</td>
-                    <td>${item.condEntrega}</td>
-                    <td>${item.natTrans}</td>
-                    <td>${item.modoTransporte}</td>
-                    <td>${item.puerto}</td>
-                    <td>${item.codMercancia}</td>
-                    <td>${item.paisOrigen}</td>
-                    <td>${item.regEstadistico}</td>
-                    <td>${item.masaNeta.toLocaleString('es-ES', {minimumFractionDigits: 3})}</td>
-                    <td>${item.unidSuplementaria.toLocaleString('es-ES', {minimumFractionDigits: 3})}</td>
-                    <td>€${item.importeFactura.toLocaleString('es-ES', {minimumFractionDigits: 2})}</td>
-                    <td>€${item.valorEstadistico.toLocaleString('es-ES', {minimumFractionDigits: 2})}</td>
-                    <td>${item.nifContraparte}</td>
-                    <td>${item.origen}</td>
-                `;
-            });
-            
-            document.getElementById('import-data-section').style.display = 'block';
-        }
-
-        function showCountryBreakdown(countries) {
-            const container = document.getElementById('country-breakdown');
-            container.innerHTML = '';
-            
-            countries.forEach(country => {
-                const exportCount = exportData.filter(item => item.estadoMiembro === country).length;
-                const importCount = importData.filter(item => item.estadoMiembro === country).length;
-                const exportValue = exportData.filter(item => item.estadoMiembro === country)
-                    .reduce((sum, item) => sum + item.importeFactura, 0);
-                const importValue = importData.filter(item => item.estadoMiembro === country)
-                    .reduce((sum, item) => sum + item.importeFactura, 0);
-                
-                const card = document.createElement('div');
-                card.className = 'country-card';
-                card.innerHTML = `
-                    <div class="country-flag">${getCountryFlag(country)}</div>
-                    <h4>${country}</h4>
-                    <p><strong>Exportaciones:</strong> ${exportCount} (€${exportValue.toLocaleString('es-ES')})</p>
-                    <p><strong>Importaciones:</strong> ${importCount} (€${importValue.toLocaleString('es-ES')})</p>
-                `;
-                container.appendChild(card);
-            });
-            
-            document.getElementById('country-breakdown-section').style.display = 'block';
-        }
-
-        function getCountryFlag(countryCode) {
-            const flags = {
-                'FR': '🇫🇷', 'DE': '🇩🇪', 'IT': '🇮🇹', 'ES': '🇪🇸', 'NL': '🇳🇱',
-                'BE': '🇧🇪', 'PT': '🇵🇹', 'HU': '🇭🇺', 'PL': '🇵🇱', 'SE': '🇸🇪',
-                'DK': '🇩🇰', 'FI': '🇫🇮', 'AT': '🇦🇹', 'CZ': '🇨🇿', 'SK': '🇸🇰',
-                'SI': '🇸🇮', 'HR': '🇭🇷', 'BG': '🇧🇬', 'RO': '🇷🇴', 'EE': '🇪🇪',
-                'LV': '🇱🇻', 'LT': '🇱🇹', 'CY': '🇨🇾', 'MT': '🇲🇹', 'LU': '🇱🇺',
-                'IE': '🇮🇪', 'CH': '🇨🇭', 'NO': '🇳🇴', 'CN': '🇨🇳'
-            };
-            return flags[countryCode] || '🏳️';
-        }
-
-        function showProcessedFiles() {
-            const container = document.getElementById('processed-files-container');
-            container.innerHTML = '';
-            
-            processedFiles.forEach(file => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'file-item';
-                fileItem.innerHTML = `
-                    <div class="file-info">
-                        <div class="file-name">${file.name}</div>
-                        <div class="file-details">
-                            ${(file.size / 1024).toFixed(1)} KB • 
-                            ${file.recordCount} registros • 
-                            Tipo: ${file.type === 'export' ? 'Exportación' : 'Importación'} • 
-                            ${file.processedAt.toLocaleString()}
-                        </div>
-                    </div>
-                    <div>
-                        <span style="color: #27ae60; font-weight: bold;">✅ Procesado</span>
-                    </div>
-                `;
-                container.appendChild(fileItem);
-            });
-            
-            document.getElementById('processed-files').style.display = 'block';
-        }
-
-        function showProgress() {
-            document.getElementById('progress-section').style.display = 'block';
-            document.getElementById('log-section').style.display = 'block';
-        }
-
-        function updateProgress(percentage, message) {
-            document.getElementById('progress-fill').style.width = percentage + '%';
-            document.getElementById('progress-text').textContent = message;
-        }
-
-        function logMessage(message) {
-            const logArea = document.getElementById('log-area');
-            const timestamp = new Date().toLocaleTimeString();
-            logArea.innerHTML += `[${timestamp}] ${message}\n`;
-            logArea.scrollTop = logArea.scrollHeight;
-        }
-
-        function enableDownloads() {
-            document.getElementById('download-exports').disabled = exportData.length === 0;
-            document.getElementById('download-imports').disabled = importData.length === 0;
-            document.getElementById('download-report').disabled = exportData.length === 0 && importData.length === 0;
-        }
-
-        function downloadExports() {
-            if (exportData.length === 0) {
-                alert('No hay datos de exportación para descargar');
-                return;
-            }
-            
-            const csvContent = generateAEATCSV(exportData);
-            downloadFile(csvContent, 'Intrastat_Exportaciones_AEAT.csv', 'text/csv');
-            logMessage(`📥 Descargado archivo de exportaciones: ${exportData.length} registros`);
-        }
-
-        function downloadImports() {
-            if (importData.length === 0) {
-                alert('No hay datos de importación para descargar');
-                return;
-            }
-            
-            const csvContent = generateAEATCSV(importData);
-            downloadFile(csvContent, 'Intrastat_Importaciones_AEAT.csv', 'text/csv');
-            logMessage(`📥 Descargado archivo de importaciones: ${importData.length} registros`);
-        }
-
-        function downloadConsolidatedReport() {
-            const report = generateConsolidatedReport();
-            downloadFile(report, 'Informe_Intrastat_Consolidado.txt', 'text/plain');
-            logMessage('📥 Descargado informe consolidado');
-        }
-
-        function generateAEATCSV(data) {
-            // Formato AEAT: Estado miembro;Provincia;Condiciones de entrega;Naturaleza de la Transacción;Modalidad de Transporte;Puerto;Código de las mercancias;País de Origen;Régimen estadístico;Masa Neta;Unidades Suplementarias;Importe Facturado;Valor Estadístico;NIF IVA
-            
-            return data.map(item => {
-                return [
-                    item.estadoMiembro,
-                    item.provincia,
-                    item.condEntrega,
-                    item.natTrans,
-                    item.modoTransporte,
-                    item.puerto,
-                    item.codMercancia,
-                    item.paisOrigen,
-                    item.regEstadistico,
-                    item.masaNeta.toFixed(3).replace('.', ','),
-                    item.unidSuplementaria.toFixed(3).replace('.', ','),
-                    item.importeFactura.toFixed(2).replace('.', ','),
-                    item.valorEstadistico.toFixed(2).replace('.', ','),
-                    item.nifContraparte
-                ].join(';');
-            }).join('\n');
-        }
-
-        function generateConsolidatedReport() {
-            const now = new Date();
-            const monthNames = {
-                '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
-                '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
-                '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
-            };
-            
-            const currentMonthName = monthNames[monthlyData.currentMonth];
-            
-            // Crear mapa de archivos por tipo para trazabilidad
-            const exportFiles = processedFiles.filter(f => f.type === 'export');
-            const importFiles = processedFiles.filter(f => f.type === 'import');
-            
-            let report = `
-INFORME CONSOLIDADO INTRASTAT - ALSTOM MOVILIDAD
-Período: ${currentMonthName} ${monthlyData.currentYear}
-Generado: ${now.toLocaleString()}
-
-═══════════════════════════════════════════════════════════════
-
-RESUMEN GENERAL:
-- Total de registros procesados: ${exportData.length + importData.length}
-- Archivos procesados: ${processedFiles.length}
-- Valor total del comercio: €${(exportData.reduce((sum, item) => sum + item.importeFactura, 0) + importData.reduce((sum, item) => sum + item.importeFactura, 0)).toLocaleString('es-ES', {minimumFractionDigits: 2})}
-
-EXPORTACIONES (EXPEDICIONES):
-- Número de registros: ${exportData.length}
-- Valor total: €${exportData.reduce((sum, item) => sum + item.importeFactura, 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}
-- Masa neta total: ${exportData.reduce((sum, item) => sum + item.masaNeta, 0).toLocaleString('es-ES')} kg
-- Países destino: ${[...new Set(exportData.map(item => item.estadoMiembro))].join(', ')}
-
-ARCHIVOS FUENTE - EXPORTACIONES:
-${exportFiles.map(file => `- ${file.name} (${file.recordCount} registros)`).join('\n')}
-
-IMPORTACIONES:
-- Número de registros: ${importData.length}
-- Valor total: €${importData.reduce((sum, item) => sum + item.importeFactura, 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}
-- Masa neta total: ${importData.reduce((sum, item) => sum + item.masaNeta, 0).toLocaleString('es-ES')} kg
-- Países origen: ${[...new Set(importData.map(item => item.estadoMiembro))].join(', ')}
-
-ARCHIVOS FUENTE - IMPORTACIONES:
-${importFiles.map(file => `- ${file.name} (${file.recordCount} registros)`).join('\n')}
-
-TRAZABILIDAD COMPLETA:
-${processedFiles.map(file => {
-    const typeLabel = file.type === 'export' ? 'EXPORTACIÓN' : 'IMPORTACIÓN';
-    return `- [${typeLabel}] ${file.name} → ${file.recordCount} registros procesados`;
-}).join('\n')}
-
-═══════════════════════════════════════════════════════════════
-
-ARCHIVOS GENERADOS:
-- Intrastat_Exportaciones_AEAT.csv (${exportData.length} registros)
-- Intrastat_Importaciones_AEAT.csv (${importData.length} registros)
-
-NOTA: Los archivos CSV generados están listos para subir directamente a la AEAT.
-Formato utilizado: Campos separados por punto y coma (;), decimales con coma (,)
-
-CONTROL DE CALIDAD:
-- Todos los registros han sido validados según criterios AEAT
-- Se mantiene trazabilidad completa hasta el archivo fuente
-- Valores negativos preservados para devoluciones/ajustes
-- Códigos de país y mercancía normalizados
-`;
-            return report;
-        }
-
-        function downloadFile(content, filename, mimeType) {
-            const blob = new Blob([content], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        // Función para mostrar información de deployment
-        function updateDeploymentInfo() {
-            // Versión basada en la fecha/hora actual del despliegue
-            const deployTime = new Date();
-            const version = document.getElementById('app-version').textContent;
-            
-            // Actualizar tiempo de deployment
-            updateDeploymentTime(deployTime);
-            
-            // Actualizar cada minuto para mostrar "hace X minutos"
-            setInterval(() => {
-                updateDeploymentTime(deployTime);
-            }, 60000); // Cada minuto
-            
-            // Log de la versión
-            logMessage(`🏷️ Aplicación iniciada - Versión ${version} - Deploy: ${deployTime.toLocaleString()}`);
-        }
-
-        function updateDeploymentTime(deployTime) {
-            const now = new Date();
-            const diffMs = now - deployTime;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMins / 60);
-            const diffDays = Math.floor(diffHours / 24);
-            
-            let timeText = '';
-            if (diffDays > 0) {
-                timeText = `hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
-            } else if (diffHours > 0) {
-                timeText = `hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
-            } else if (diffMins > 0) {
-                timeText = `hace ${diffMins} min`;
-            } else {
-                timeText = 'recién deployado';
-            }
-            
-            document.getElementById('deployment-time').textContent = timeText;
-        }
-
-        // Función para actualizar versión manualmente
-        function updateVersion(newVersion) {
-            document.getElementById('app-version').textContent = newVersion;
-            localStorage.setItem('app-version', newVersion);
-        }
-    </script>
-</body>
-</html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1217,6 +111,12 @@ CONTROL DE CALIDAD:
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .btn-success {
@@ -1615,163 +515,58 @@ CONTROL DE CALIDAD:
                 </div>
             </div>
 
-            <!-- Procesador Rápido (anteriormente Procesador) -->
+            <!-- Procesador Rápido (Legacy) -->
             <div id="processor" class="tab-content">
                 <div class="section">
                     <h2>⚡ Procesador Rápido</h2>
-                    
                     <div class="alert alert-info">
-                        <strong>🚀 Procesamiento inmediato:</strong>
-                        <ol style="margin-top: 10px; margin-left: 20px;">
-                            <li>Sube archivos para procesamiento inmediato (modo legacy)</li>
-                            <li>El sistema los procesará y mapeará al formato AEAT</li>
-                            <li>Revisa y valida los datos procesados</li>
-                            <li>Descarga el archivo CSV final para AEAT</li>
-                        </ol>
-                        <p style="margin-top: 10px;"><strong>💡 Recomendación:</strong> Usa la "Gestión por Meses" para un flujo más profesional.</p>
+                        <strong>💡 Modo rápido para casos urgentes:</strong> Sube archivos sin clasificar para procesamiento inmediato. Para flujos organizados usa "Gestión por Meses".
                     </div>
-
-                    <div class="upload-area" id="main-upload" onclick="document.getElementById('main-files').click()" 
-                         ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                    
+                    <div class="upload-area" onclick="document.getElementById('fileInput').click()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
                         <div class="upload-icon">📁</div>
-                        <h3>Arrastra archivos Excel/CSV de Alstom aquí</h3>
-                        <p>Archivos soportados: .xlsx, .xls, .csv</p>
-                        <p><strong>Procesa automáticamente:</strong> Expediciones e Importaciones</p>
-                        <input type="file" id="main-files" class="file-input" multiple accept=".xlsx,.xls,.csv">
+                        <h3>Selecciona o arrastra archivos aquí</h3>
+                        <p>Formatos soportados: Excel (.xlsx, .xls) y CSV</p>
+                        <input type="file" id="fileInput" class="file-input" multiple accept=".xlsx,.xls,.csv">
                     </div>
 
-                    <div id="progress-section" class="progress-section" style="display: none;">
+                    <div id="fileList" class="file-list" style="display: none;">
+                        <h3>Archivos cargados:</h3>
+                        <div id="fileItems"></div>
+                        <button class="btn btn-large" onclick="processFiles()">🚀 Procesar Archivos</button>
+                    </div>
+
+                    <div id="progressSection" class="progress-section" style="display: none;">
                         <h3>Procesando archivos...</h3>
                         <div class="progress-bar">
-                            <div class="progress-fill" id="progress-fill"></div>
+                            <div class="progress-fill" id="progressFill"></div>
                         </div>
-                        <p id="progress-text">Iniciando...</p>
+                        <p id="progressText">Iniciando...</p>
                     </div>
 
-                    <div id="log-section" style="display: none;">
-                        <h3>Log de Procesamiento:</h3>
-                        <div id="log-area" class="log-area"></div>
-                    </div>
-
-                    <div id="processed-files" class="file-list" style="display: none;">
-                        <h3>Archivos Procesados:</h3>
-                        <div id="processed-files-container"></div>
+                    <div id="logSection" style="display: none;">
+                        <h3>Log de procesamiento:</h3>
+                        <div id="logArea" class="log-area"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Contenido de Exportaciones -->
+            <!-- Exportaciones -->
             <div id="exports" class="tab-content">
                 <div class="section">
-                    <h2>📤 Exportaciones Procesadas (Expediciones)</h2>
-                    
-                    <div class="summary-grid" id="export-summary">
-                        <div class="summary-card">
-                            <h3>Total Registros</h3>
-                            <div class="summary-value" id="export-total-records">0</div>
-                            <div class="summary-label">expediciones procesadas</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Valor Total</h3>
-                            <div class="summary-value" id="export-total-value">€0</div>
-                            <div class="summary-label">importe facturado</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Países Destino</h3>
-                            <div class="summary-value" id="export-countries">0</div>
-                            <div class="summary-label">países diferentes</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Masa Neta Total</h3>
-                            <div class="summary-value" id="export-total-weight">0</div>
-                            <div class="summary-label">kg exportados</div>
-                        </div>
-                    </div>
-
-                    <div id="export-data-section" style="display: none;">
-                        <h3>Datos de Exportación (Primeros 100 registros):</h3>
-                        <div style="overflow-x: auto;">
-                            <table class="data-table" id="export-data-table">
-                                <thead>
-                                    <tr>
-                                        <th>País</th>
-                                        <th>Provincia</th>
-                                        <th>Cond. Entrega</th>
-                                        <th>Nat. Trans.</th>
-                                        <th>Transporte</th>
-                                        <th>Puerto</th>
-                                        <th>Cód. Mercancía</th>
-                                        <th>País Origen</th>
-                                        <th>Reg. Est.</th>
-                                        <th>Masa Neta</th>
-                                        <th>Unid. Supl.</th>
-                                        <th>Imp. Facturado</th>
-                                        <th>Valor Est.</th>
-                                        <th>NIF Contraparte</th>
-                                        <th>Origen</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                    <h2>📤 Exportaciones</h2>
+                    <div id="exportData">
+                        <p>No se han procesado exportaciones aún.</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Contenido de Importaciones -->
+            <!-- Importaciones -->
             <div id="imports" class="tab-content">
                 <div class="section">
-                    <h2>📥 Importaciones Procesadas</h2>
-                    
-                    <div class="summary-grid" id="import-summary">
-                        <div class="summary-card">
-                            <h3>Total Registros</h3>
-                            <div class="summary-value" id="import-total-records">0</div>
-                            <div class="summary-label">importaciones procesadas</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Valor Total</h3>
-                            <div class="summary-value" id="import-total-value">€0</div>
-                            <div class="summary-label">importe facturado</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Países Origen</h3>
-                            <div class="summary-value" id="import-countries">0</div>
-                            <div class="summary-label">países diferentes</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Masa Neta Total</h3>
-                            <div class="summary-value" id="import-total-weight">0</div>
-                            <div class="summary-label">kg importados</div>
-                        </div>
-                    </div>
-
-                    <div id="import-data-section" style="display: none;">
-                        <h3>Datos de Importación (Primeros 100 registros):</h3>
-                        <div style="overflow-x: auto;">
-                            <table class="data-table" id="import-data-table">
-                                <thead>
-                                    <tr>
-                                        <th>País</th>
-                                        <th>Provincia</th>
-                                        <th>Cond. Entrega</th>
-                                        <th>Nat. Trans.</th>
-                                        <th>Transporte</th>
-                                        <th>Puerto</th>
-                                        <th>Cód. Mercancía</th>
-                                        <th>País Origen</th>
-                                        <th>Reg. Est.</th>
-                                        <th>Masa Neta</th>
-                                        <th>Unid. Supl.</th>
-                                        <th>Imp. Facturado</th>
-                                        <th>Valor Est.</th>
-                                        <th>NIF Contraparte</th>
-                                        <th>Origen</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                    <h2>📥 Importaciones</h2>
+                    <div id="importData">
+                        <p>No se han procesado importaciones aún.</p>
                     </div>
                 </div>
             </div>
@@ -1779,23 +574,994 @@ CONTROL DE CALIDAD:
             <!-- Resumen Final -->
             <div id="summary" class="tab-content">
                 <div class="section">
-                    <h2>📊 Resumen Final y Exportación</h2>
+                    <h2>📊 Resumen Final</h2>
+                    <div id="summaryContent">
+                        <p>Procesa archivos para ver el resumen completo.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let processedData = {
+            exports: [],
+            imports: [],
+            consolidatedExports: [],
+            consolidatedImports: []
+        };
+
+        let currentMonth = {
+            month: '06',
+            year: '2025',
+            files: {
+                exports: [],
+                imports: []
+            }
+        };
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDeploymentInfo();
+            loadMonthData();
+            
+            // Event listeners para archivos clasificados
+            document.getElementById('export-files').addEventListener('change', function(e) {
+                handleClassifiedFiles(e.target.files, 'export');
+            });
+            
+            document.getElementById('import-files').addEventListener('change', function(e) {
+                handleClassifiedFiles(e.target.files, 'import');
+            });
+            
+            // Event listener para procesador rápido
+            document.getElementById('fileInput').addEventListener('change', function(e) {
+                handleFiles(e.target.files);
+            });
+        });
+
+        // Funciones de actualización de información
+        function updateDeploymentInfo() {
+            const now = new Date();
+            const deploymentTime = now.toLocaleString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('deployment-time').textContent = deploymentTime;
+        }
+
+        // Gestión de pestañas
+        function switchTab(tabName) {
+            // Ocultar todas las pestañas
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+            
+            // Mostrar la pestaña seleccionada
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // Gestión de meses
+        function loadMonthData() {
+            const monthSelect = document.getElementById('month-select');
+            const yearSelect = document.getElementById('year-select');
+            
+            currentMonth.month = monthSelect.value;
+            currentMonth.year = yearSelect.value;
+            
+            const monthNames = {
+                '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+                '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+                '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+            };
+            
+            const monthName = monthNames[currentMonth.month];
+            const displayText = `📁 Trabajando en: ${monthName} ${currentMonth.year}`;
+            
+            document.getElementById('current-month-display').innerHTML = `<strong>${displayText}</strong>`;
+            document.getElementById('folder-title').textContent = `${monthName} ${currentMonth.year}`;
+            
+            updateMonthStructure();
+        }
+
+        function updateMonthStructure() {
+            const exportCount = currentMonth.files.exports.length;
+            const importCount = currentMonth.files.imports.length;
+            
+            document.getElementById('export-count').textContent = `${exportCount} archivos`;
+            document.getElementById('import-count').textContent = `${importCount} archivos`;
+            
+            // Actualizar listas de archivos
+            updateFilesList('export-files-list', currentMonth.files.exports, 'export');
+            updateFilesList('import-files-list', currentMonth.files.imports, 'import');
+            
+            // Habilitar/deshabilitar botón de procesamiento
+            const processBtn = document.getElementById('process-month-btn');
+            processBtn.disabled = (exportCount === 0 && importCount === 0);
+        }
+
+        function updateFilesList(containerId, files, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            files.forEach((file, index) => {
+                const fileElement = document.createElement('div');
+                fileElement.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 8px; background: white; margin-bottom: 5px; border-radius: 5px; font-size: 0.9em;';
+                
+                fileElement.innerHTML = `
+                    <span>📄 ${file.name}</span>
+                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8em;" onclick="removeMonthFile('${type}', ${index})">
+                        ❌ Quitar
+                    </button>
+                `;
+                
+                container.appendChild(fileElement);
+            });
+        }
+
+        function removeMonthFile(type, index) {
+            currentMonth.files[type + 's'].splice(index, 1);
+            updateMonthStructure();
+        }
+
+        // Gestión de archivos clasificados
+        function handleClassifiedFiles(files, type) {
+            Array.from(files).forEach(file => {
+                if (file.type.includes('sheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
+                    currentMonth.files[type + 's'].push({
+                        name: file.name,
+                        file: file,
+                        uploadTime: new Date().toISOString(),
+                        type: type
+                    });
+                }
+            });
+            updateMonthStructure();
+            showAlert(`${files.length} archivo(s) añadido(s) a ${type === 'export' ? 'Exportaciones' : 'Importaciones'}`, 'success');
+        }
+
+        function handleClassifiedDrop(event, type) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const zone = event.currentTarget;
+            zone.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            handleClassifiedFiles(files, type);
+        }
+
+        // Procesamiento del mes completo
+        async function processCurrentMonth() {
+            const totalFiles = currentMonth.files.exports.length + currentMonth.files.imports.length;
+            
+            if (totalFiles === 0) {
+                showAlert('No hay archivos para procesar', 'error');
+                return;
+            }
+
+            showMonthProgress(true);
+            showMonthLog(true);
+            
+            logMonth('🚀 Iniciando procesamiento del mes completo...');
+            logMonth(`📅 Período: ${document.getElementById('folder-title').textContent}`);
+            logMonth(`📊 Total archivos: ${totalFiles} (${currentMonth.files.exports.length} exp, ${currentMonth.files.imports.length} imp)`);
+
+            let progress = 0;
+            const increment = 100 / totalFiles;
+
+            try {
+                // Procesar exportaciones
+                if (currentMonth.files.exports.length > 0) {
+                    logMonth('📤 Procesando exportaciones...');
+                    for (let i = 0; i < currentMonth.files.exports.length; i++) {
+                        const file = currentMonth.files.exports[i];
+                        logMonth(`  📄 Procesando: ${file.name}`);
+                        
+                        const data = await processExcelFile(file.file);
+                        if (data && data.length > 0) {
+                            processedData.exports.push({
+                                fileName: file.name,
+                                uploadTime: file.uploadTime,
+                                data: data,
+                                month: currentMonth.month,
+                                year: currentMonth.year
+                            });
+                            logMonth(`  ✅ ${data.length} registros procesados`);
+                        }
+                        
+                        progress += increment;
+                        updateMonthProgress(progress, `Procesando ${file.name}...`);
+                        await sleep(100);
+                    }
+                }
+
+                // Procesar importaciones
+                if (currentMonth.files.imports.length > 0) {
+                    logMonth('📥 Procesando importaciones...');
+                    for (let i = 0; i < currentMonth.files.imports.length; i++) {
+                        const file = currentMonth.files.imports[i];
+                        logMonth(`  📄 Procesando: ${file.name}`);
+                        
+                        const data = await processExcelFile(file.file);
+                        if (data && data.length > 0) {
+                            processedData.imports.push({
+                                fileName: file.name,
+                                uploadTime: file.uploadTime,
+                                data: data,
+                                month: currentMonth.month,
+                                year: currentMonth.year
+                            });
+                            logMonth(`  ✅ ${data.length} registros procesados`);
+                        }
+                        
+                        progress += increment;
+                        updateMonthProgress(progress, `Procesando ${file.name}...`);
+                        await sleep(100);
+                    }
+                }
+
+                // Consolidar datos
+                updateMonthProgress(95, 'Consolidando datos...');
+                logMonth('🔄 Consolidando datos del mes...');
+                
+                consolidateMonthData();
+                updateAllTabs();
+                
+                updateMonthProgress(100, '¡Procesamiento completado!');
+                logMonth('✅ Procesamiento del mes completado exitosamente');
+                
+                showAlert('Mes procesado exitosamente. Revisa las pestañas de Exportaciones, Importaciones y Resumen.', 'success');
+                
+            } catch (error) {
+                logMonth(`❌ Error durante el procesamiento: ${error.message}`);
+                showAlert('Error durante el procesamiento: ' + error.message, 'error');
+            }
+        }
+
+        function consolidateMonthData() {
+            // Consolidar exportaciones
+            const exportsByCountry = {};
+            processedData.exports.forEach(fileData => {
+                fileData.data.forEach(row => {
+                    const country = row['País de destino'] || row['País'] || 'DESCONOCIDO';
+                    if (!exportsByCountry[country]) {
+                        exportsByCountry[country] = {
+                            country: country,
+                            totalValue: 0,
+                            totalWeight: 0,
+                            records: [],
+                            sourceFiles: new Set()
+                        };
+                    }
                     
-                    <div class="summary-grid">
-                        <div class="summary-card">
-                            <h3>Total General</h3>
-                            <div class="summary-value" id="total-records">0</div>
-                            <div class="summary-label">registros procesados</div>
+                    const value = parseFloat(row['Importe facturado'] || row['Valor'] || 0);
+                    const weight = parseFloat(row['Masa neta (kg)'] || row['Peso'] || 0);
+                    
+                    exportsByCountry[country].totalValue += Math.abs(value);
+                    exportsByCountry[country].totalWeight += Math.abs(weight);
+                    exportsByCountry[country].records.push({
+                        ...row,
+                        sourceFile: fileData.fileName,
+                        uploadTime: fileData.uploadTime
+                    });
+                    exportsByCountry[country].sourceFiles.add(fileData.fileName);
+                });
+            });
+
+            // Consolidar importaciones
+            const importsByCountry = {};
+            processedData.imports.forEach(fileData => {
+                fileData.data.forEach(row => {
+                    const country = row['País de origen'] || row['País'] || 'DESCONOCIDO';
+                    if (!importsByCountry[country]) {
+                        importsByCountry[country] = {
+                            country: country,
+                            totalValue: 0,
+                            totalWeight: 0,
+                            records: [],
+                            sourceFiles: new Set()
+                        };
+                    }
+                    
+                    const value = parseFloat(row['Importe facturado'] || row['Valor'] || 0);
+                    const weight = parseFloat(row['Masa neta (kg)'] || row['Peso'] || 0);
+                    
+                    importsByCountry[country].totalValue += Math.abs(value);
+                    importsByCountry[country].totalWeight += Math.abs(weight);
+                    importsByCountry[country].records.push({
+                        ...row,
+                        sourceFile: fileData.fileName,
+                        uploadTime: fileData.uploadTime
+                    });
+                    importsByCountry[country].sourceFiles.add(fileData.fileName);
+                });
+            });
+
+            processedData.consolidatedExports = Object.values(exportsByCountry);
+            processedData.consolidatedImports = Object.values(importsByCountry);
+        }
+
+        // Funciones de progreso y log para meses
+        function showMonthProgress(show) {
+            document.getElementById('month-progress-section').style.display = show ? 'block' : 'none';
+        }
+
+        function updateMonthProgress(percentage, text) {
+            document.getElementById('month-progress-fill').style.width = percentage + '%';
+            document.getElementById('month-progress-text').textContent = text;
+        }
+
+        function showMonthLog(show) {
+            document.getElementById('month-log-section').style.display = show ? 'block' : 'none';
+        }
+
+        function logMonth(message) {
+            const logArea = document.getElementById('month-log-area');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `[${timestamp}] ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // Procesador rápido (legacy)
+        function handleFiles(files) {
+            const fileItems = document.getElementById('fileItems');
+            fileItems.innerHTML = '';
+            
+            Array.from(files).forEach((file, index) => {
+                if (file.type.includes('sheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div class="file-info">
+                            <div class="file-name">📄 ${file.name}</div>
+                            <div class="file-details">Tamaño: ${(file.size / 1024).toFixed(1)} KB | Tipo: ${file.type || 'Desconocido'}</div>
                         </div>
-                        <div class="summary-card">
-                            <h3>Valor Comercio</h3>
-                            <div class="summary-value" id="total-trade-value">€0</div>
-                            <div class="summary-label">valor total comercio</div>
+                        <button class="btn btn-danger" onclick="removeFile(${index})">❌ Quitar</button>
+                    `;
+                    fileItems.appendChild(fileItem);
+                }
+            });
+            
+            if (fileItems.children.length > 0) {
+                document.getElementById('fileList').style.display = 'block';
+            }
+        }
+
+        function removeFile(index) {
+            const fileItems = document.getElementById('fileItems');
+            fileItems.removeChild(fileItems.children[index]);
+            
+            if (fileItems.children.length === 0) {
+                document.getElementById('fileList').style.display = 'none';
+            }
+        }
+
+        async function processFiles() {
+            const fileItems = document.getElementById('fileItems');
+            const files = Array.from(fileItems.children).map(item => {
+                const fileName = item.querySelector('.file-name').textContent.replace('📄 ', '');
+                return document.getElementById('fileInput').files[Array.from(document.getElementById('fileInput').files).findIndex(f => f.name === fileName)];
+            });
+
+            if (files.length === 0) {
+                showAlert('No hay archivos para procesar', 'error');
+                return;
+            }
+
+            showProgress(true);
+            showLog(true);
+            
+            log('🚀 Iniciando procesamiento de archivos...');
+            
+            let progress = 0;
+            const increment = 100 / files.length;
+
+            try {
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    log(`📄 Procesando archivo: ${file.name}`);
+                    
+                    updateProgress(progress, `Procesando ${file.name}...`);
+                    
+                    const data = await processExcelFile(file);
+                    
+                    if (data && data.length > 0) {
+                        // Detectar tipo de archivo basado en las columnas
+                        const isExport = detectFileType(data) === 'export';
+                        
+                        if (isExport) {
+                            processedData.exports.push({
+                                fileName: file.name,
+                                uploadTime: new Date().toISOString(),
+                                data: data
+                            });
+                            log(`✅ Procesado como EXPORTACIÓN: ${data.length} registros`);
+                        } else {
+                            processedData.imports.push({
+                                fileName: file.name,
+                                uploadTime: new Date().toISOString(),
+                                data: data
+                            });
+                            log(`✅ Procesado como IMPORTACIÓN: ${data.length} registros`);
+                        }
+                    }
+                    
+                    progress += increment;
+                    await sleep(100);
+                }
+
+                updateProgress(95, 'Consolidando datos...');
+                log('🔄 Consolidando datos...');
+                
+                consolidateData();
+                updateAllTabs();
+                
+                updateProgress(100, '¡Procesamiento completado!');
+                log('✅ Procesamiento completado exitosamente');
+                
+                showAlert('Archivos procesados exitosamente. Revisa las pestañas de Exportaciones, Importaciones y Resumen.', 'success');
+                
+            } catch (error) {
+                log(`❌ Error durante el procesamiento: ${error.message}`);
+                showAlert('Error durante el procesamiento: ' + error.message, 'error');
+            }
+        }
+
+        // Funciones de procesamiento de archivos
+        function processExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        let data;
+                        
+                        if (file.name.endsWith('.csv')) {
+                            data = parseCSV(e.target.result);
+                        } else {
+                            const workbook = XLSX.read(e.target.result, { type: 'binary' });
+                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                            data = XLSX.utils.sheet_to_json(firstSheet);
+                        }
+                        
+                        resolve(data);
+                    } catch (error) {
+                        reject(new Error(`Error procesando ${file.name}: ${error.message}`));
+                    }
+                };
+                
+                reader.onerror = () => reject(new Error(`Error leyendo el archivo ${file.name}`));
+                
+                if (file.name.endsWith('.csv')) {
+                    reader.readAsText(file);
+                } else {
+                    reader.readAsBinaryString(file);
+                }
+            });
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n');
+            const headers = lines[0].split(';').map(h => h.trim());
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim()) {
+                    const values = lines[i].split(';');
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index] ? values[index].trim() : '';
+                    });
+                    data.push(row);
+                }
+            }
+            
+            return data;
+        }
+
+        function detectFileType(data) {
+            if (data.length === 0) return 'unknown';
+            
+            const firstRow = data[0];
+            const columns = Object.keys(firstRow).map(k => k.toLowerCase());
+            
+            // Buscar indicadores de exportación
+            const exportIndicators = ['destino', 'expedición', 'exportación', 'cliente'];
+            const importIndicators = ['origen', 'adquisición', 'importación', 'proveedor'];
+            
+            const hasExportIndicators = exportIndicators.some(indicator => 
+                columns.some(col => col.includes(indicator))
+            );
+            
+            const hasImportIndicators = importIndicators.some(indicator => 
+                columns.some(col => col.includes(indicator))
+            );
+            
+            if (hasExportIndicators && !hasImportIndicators) return 'export';
+            if (hasImportIndicators && !hasExportIndicators) return 'import';
+            
+            // Si no está claro, usar heurística por defecto
+            return 'export';
+        }
+
+        function consolidateData() {
+            // Consolidar exportaciones
+            const exportsByCountry = {};
+            processedData.exports.forEach(fileData => {
+                fileData.data.forEach(row => {
+                    const country = row['País de destino'] || row['País'] || 'DESCONOCIDO';
+                    if (!exportsByCountry[country]) {
+                        exportsByCountry[country] = {
+                            country: country,
+                            totalValue: 0,
+                            totalWeight: 0,
+                            records: []
+                        };
+                    }
+                    
+                    const value = parseFloat(row['Importe facturado'] || row['Valor'] || 0);
+                    const weight = parseFloat(row['Masa neta (kg)'] || row['Peso'] || 0);
+                    
+                    exportsByCountry[country].totalValue += Math.abs(value);
+                    exportsByCountry[country].totalWeight += Math.abs(weight);
+                    exportsByCountry[country].records.push(row);
+                });
+            });
+
+            // Consolidar importaciones
+            const importsByCountry = {};
+            processedData.imports.forEach(fileData => {
+                fileData.data.forEach(row => {
+                    const country = row['País de origen'] || row['País'] || 'DESCONOCIDO';
+                    if (!importsByCountry[country]) {
+                        importsByCountry[country] = {
+                            country: country,
+                            totalValue: 0,
+                            totalWeight: 0,
+                            records: []
+                        };
+                    }
+                    
+                    const value = parseFloat(row['Importe facturado'] || row['Valor'] || 0);
+                    const weight = parseFloat(row['Masa neta (kg)'] || row['Peso'] || 0);
+                    
+                    importsByCountry[country].totalValue += Math.abs(value);
+                    importsByCountry[country].totalWeight += Math.abs(weight);
+                    importsByCountry[country].records.push(row);
+                });
+            });
+
+            processedData.consolidatedExports = Object.values(exportsByCountry);
+            processedData.consolidatedImports = Object.values(importsByCountry);
+        }
+
+        // Actualización de pestañas
+        function updateAllTabs() {
+            updateExportsTab();
+            updateImportsTab();
+            updateSummaryTab();
+        }
+
+        function updateExportsTab() {
+            const container = document.getElementById('exportData');
+            
+            if (processedData.consolidatedExports.length === 0) {
+                container.innerHTML = '<p>No se han procesado exportaciones aún.</p>';
+                return;
+            }
+
+            let html = `
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>📤 Total Exportaciones</h3>
+                        <div class="summary-value">${processedData.consolidatedExports.length}</div>
+                        <div class="summary-label">países destino</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>💰 Valor Total</h3>
+                        <div class="summary-value">€${processedData.consolidatedExports.reduce((sum, exp) => sum + exp.totalValue, 0).toLocaleString()}</div>
+                        <div class="summary-label">importe facturado</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>⚖️ Peso Total</h3>
+                        <div class="summary-value">${(processedData.consolidatedExports.reduce((sum, exp) => sum + exp.totalWeight, 0) / 1000).toFixed(1)}</div>
+                        <div class="summary-label">toneladas</div>
+                    </div>
+                </div>
+                
+                <div class="country-breakdown">
+            `;
+
+            processedData.consolidatedExports
+                .sort((a, b) => b.totalValue - a.totalValue)
+                .forEach(countryData => {
+                    html += `
+                        <div class="country-card">
+                            <h4>🇪🇺 ${countryData.country}</h4>
+                            <p><strong>Valor:</strong> €${countryData.totalValue.toLocaleString()}</p>
+                            <p><strong>Peso:</strong> ${(countryData.totalWeight / 1000).toFixed(1)} t</p>
+                            <p><strong>Registros:</strong> ${countryData.records.length}</p>
+                            ${countryData.sourceFiles ? `<p><strong>Archivos:</strong> ${Array.from(countryData.sourceFiles).join(', ')}</p>` : ''}
                         </div>
-                        <div class="summary-card">
-                            <h3>Archivos Origen</h3>
-                            <div class="summary-value" id="total-files">0</div>
-                            <div class="summary-label">archivos procesados</div>
+                    `;
+                });
+
+            html += '</div>';
+
+            // Botón de exportación
+            html += `
+                <div class="export-section">
+                    <h3>📁 Exportar Datos</h3>
+                    <button class="btn btn-success btn-large" onclick="exportToExcel('exports')">
+                        📊 Descargar Excel de Exportaciones
+                    </button>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function updateImportsTab() {
+            const container = document.getElementById('importData');
+            
+            if (processedData.consolidatedImports.length === 0) {
+                container.innerHTML = '<p>No se han procesado importaciones aún.</p>';
+                return;
+            }
+
+            let html = `
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>📥 Total Importaciones</h3>
+                        <div class="summary-value">${processedData.consolidatedImports.length}</div>
+                        <div class="summary-label">países origen</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>💰 Valor Total</h3>
+                        <div class="summary-value">€${processedData.consolidatedImports.reduce((sum, imp) => sum + imp.totalValue, 0).toLocaleString()}</div>
+                        <div class="summary-label">importe facturado</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>⚖️ Peso Total</h3>
+                        <div class="summary-value">${(processedData.consolidatedImports.reduce((sum, imp) => sum + imp.totalWeight, 0) / 1000).toFixed(1)}</div>
+                        <div class="summary-label">toneladas</div>
+                    </div>
+                </div>
+                
+                <div class="country-breakdown">
+            `;
+
+            processedData.consolidatedImports
+                .sort((a, b) => b.totalValue - a.totalValue)
+                .forEach(countryData => {
+                    html += `
+                        <div class="country-card" style="border-left-color: #27ae60;">
+                            <h4>🇪🇺 ${countryData.country}</h4>
+                            <p><strong>Valor:</strong> €${countryData.totalValue.toLocaleString()}</p>
+                            <p><strong>Peso:</strong> ${(countryData.totalWeight / 1000).toFixed(1)} t</p>
+                            <p><strong>Registros:</strong> ${countryData.records.length}</p>
+                            ${countryData.sourceFiles ? `<p><strong>Archivos:</strong> ${Array.from(countryData.sourceFiles).join(', ')}</p>` : ''}
                         </div>
-                        <div class="summary-card">
-                            <h3>
+                    `;
+                });
+
+            html += '</div>';
+
+            // Botón de exportación
+            html += `
+                <div class="export-section">
+                    <h3>📁 Exportar Datos</h3>
+                    <button class="btn btn-success btn-large" onclick="exportToExcel('imports')">
+                        📊 Descargar Excel de Importaciones
+                    </button>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function updateSummaryTab() {
+            const container = document.getElementById('summaryContent');
+            
+            if (processedData.consolidatedExports.length === 0 && processedData.consolidatedImports.length === 0) {
+                container.innerHTML = '<p>Procesa archivos para ver el resumen completo.</p>';
+                return;
+            }
+
+            const totalExportValue = processedData.consolidatedExports.reduce((sum, exp) => sum + exp.totalValue, 0);
+            const totalImportValue = processedData.consolidatedImports.reduce((sum, imp) => sum + imp.totalValue, 0);
+            const totalExportWeight = processedData.consolidatedExports.reduce((sum, exp) => sum + exp.totalWeight, 0);
+            const totalImportWeight = processedData.consolidatedImports.reduce((sum, imp) => sum + imp.totalWeight, 0);
+
+            let html = `
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <h3>📊 Balance Comercial</h3>
+                        <div class="summary-value ${totalExportValue - totalImportValue >= 0 ? 'style="color: #27ae60;"' : 'style="color: #e74c3c;"'}"}>
+                            €${(totalExportValue - totalImportValue).toLocaleString()}
+                        </div>
+                        <div class="summary-label">${totalExportValue - totalImportValue >= 0 ? 'superávit' : 'déficit'}</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>📤 Exportaciones</h3>
+                        <div class="summary-value">€${totalExportValue.toLocaleString()}</div>
+                        <div class="summary-label">${processedData.consolidatedExports.length} países</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>📥 Importaciones</h3>
+                        <div class="summary-value">€${totalImportValue.toLocaleString()}</div>
+                        <div class="summary-label">${processedData.consolidatedImports.length} países</div>
+                    </div>
+                    <div class="summary-card">
+                        <h3>⚖️ Peso Total</h3>
+                        <div class="summary-value">${((totalExportWeight + totalImportWeight) / 1000).toFixed(1)}</div>
+                        <div class="summary-label">toneladas</div>
+                    </div>
+                </div>
+
+                <div class="export-section">
+                    <h3>📁 Archivos Consolidados AEAT</h3>
+                    <p>Descarga los archivos finales para presentar a la AEAT:</p>
+                    <button class="btn btn-success btn-large" onclick="exportConsolidated()">
+                        📋 Descargar Consolidado Completo
+                    </button>
+                </div>
+
+                <div style="background: #f8f9fa; border-radius: 10px; padding: 20px; margin-top: 20px;">
+                    <h3>📋 Archivos Procesados:</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4 style="color: #27ae60;">📤 Exportaciones:</h4>
+                            <ul style="margin-left: 20px;">
+                                ${processedData.exports.map(file => `
+                                    <li>${file.fileName} 
+                                        ${file.month && file.year ? `<small>(${file.month}/${file.year})</small>` : ''}
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 style="color: #e74c3c;">📥 Importaciones:</h4>
+                            <ul style="margin-left: 20px;">
+                                ${processedData.imports.map(file => `
+                                    <li>${file.fileName}
+                                        ${file.month && file.year ? `<small>(${file.month}/${file.year})</small>` : ''}
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // Funciones de exportación
+        function exportToExcel(type) {
+            const data = type === 'exports' ? processedData.consolidatedExports : processedData.consolidatedImports;
+            
+            if (data.length === 0) {
+                showAlert('No hay datos para exportar', 'error');
+                return;
+            }
+
+            // Crear workbook
+            const wb = XLSX.utils.book_new();
+            
+            // Preparar datos para la hoja de resumen
+            const summaryData = data.map(country => ({
+                'País': country.country,
+                'Valor Total (€)': country.totalValue,
+                'Peso Total (kg)': country.totalWeight,
+                'Número de Registros': country.records.length,
+                'Archivos Fuente': country.sourceFiles ? Array.from(country.sourceFiles).join(', ') : 'N/A'
+            }));
+
+            // Crear hoja de resumen
+            const ws_summary = XLSX.utils.json_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, ws_summary, 'Resumen por País');
+
+            // Crear hoja detallada
+            const detailData = [];
+            data.forEach(country => {
+                country.records.forEach(record => {
+                    detailData.push({
+                        'País': country.country,
+                        'Archivo Fuente': record.sourceFile || 'N/A',
+                        ...record
+                    });
+                });
+            });
+
+            const ws_detail = XLSX.utils.json_to_sheet(detailData);
+            XLSX.utils.book_append_sheet(wb, ws_detail, 'Detalle Completo');
+
+            // Descargar
+            const fileName = `Intrastat_${type === 'exports' ? 'Exportaciones' : 'Importaciones'}_${new Date().toISOString().slice(0,10)}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            
+            showAlert(`Archivo ${fileName} descargado exitosamente`, 'success');
+        }
+
+        function exportConsolidated() {
+            if (processedData.consolidatedExports.length === 0 && processedData.consolidatedImports.length === 0) {
+                showAlert('No hay datos procesados para exportar', 'error');
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+
+            // Hoja de resumen ejecutivo
+            const executiveSummary = [{
+                'Tipo': 'Exportaciones',
+                'Países': processedData.consolidatedExports.length,
+                'Valor Total (€)': processedData.consolidatedExports.reduce((sum, exp) => sum + exp.totalValue, 0),
+                'Peso Total (kg)': processedData.consolidatedExports.reduce((sum, exp) => sum + exp.totalWeight, 0)
+            }, {
+                'Tipo': 'Importaciones',
+                'Países': processedData.consolidatedImports.length,
+                'Valor Total (€)': processedData.consolidatedImports.reduce((sum, imp) => sum + imp.totalValue, 0),
+                'Peso Total (kg)': processedData.consolidatedImports.reduce((sum, imp) => sum + imp.totalWeight, 0)
+            }];
+
+            const ws_executive = XLSX.utils.json_to_sheet(executiveSummary);
+            XLSX.utils.book_append_sheet(wb, ws_executive, 'Resumen Ejecutivo');
+
+            // Exportaciones consolidadas
+            if (processedData.consolidatedExports.length > 0) {
+                const exportsData = processedData.consolidatedExports.map(country => ({
+                    'País de Destino': country.country,
+                    'Valor Total (€)': country.totalValue,
+                    'Peso Total (kg)': country.totalWeight,
+                    'Número de Registros': country.records.length,
+                    'Archivos Fuente': country.sourceFiles ? Array.from(country.sourceFiles).join(', ') : 'N/A'
+                }));
+
+                const ws_exports = XLSX.utils.json_to_sheet(exportsData);
+                XLSX.utils.book_append_sheet(wb, ws_exports, 'Exportaciones AEAT');
+            }
+
+            // Importaciones consolidadas
+            if (processedData.consolidatedImports.length > 0) {
+                const importsData = processedData.consolidatedImports.map(country => ({
+                    'País de Origen': country.country,
+                    'Valor Total (€)': country.totalValue,
+                    'Peso Total (kg)': country.totalWeight,
+                    'Número de Registros': country.records.length,
+                    'Archivos Fuente': country.sourceFiles ? Array.from(country.sourceFiles).join(', ') : 'N/A'
+                }));
+
+                const ws_imports = XLSX.utils.json_to_sheet(importsData);
+                XLSX.utils.book_append_sheet(wb, ws_imports, 'Importaciones AEAT');
+            }
+
+            // Metadatos y trazabilidad
+            const metadata = [{
+                'Fecha de Procesamiento': new Date().toLocaleString('es-ES'),
+                'Versión del Sistema': '1.4.0',
+                'Total Archivos Procesados': processedData.exports.length + processedData.imports.length,
+                'Período': currentMonth.month && currentMonth.year ? `${currentMonth.month}/${currentMonth.year}` : 'Múltiples períodos',
+                'Usuario': 'Alstom Movilidad',
+                'Notas': 'Archivo generado automáticamente con trazabilidad completa'
+            }];
+
+            const ws_metadata = XLSX.utils.json_to_sheet(metadata);
+            XLSX.utils.book_append_sheet(wb, ws_metadata, 'Metadatos');
+
+            // Archivo de trazabilidad
+            const traceabilityData = [];
+            processedData.exports.forEach(file => {
+                traceabilityData.push({
+                    'Tipo': 'Exportación',
+                    'Archivo': file.fileName,
+                    'Fecha de Carga': new Date(file.uploadTime).toLocaleString('es-ES'),
+                    'Registros': file.data.length,
+                    'Período': file.month && file.year ? `${file.month}/${file.year}` : 'No especificado'
+                });
+            });
+            processedData.imports.forEach(file => {
+                traceabilityData.push({
+                    'Tipo': 'Importación',
+                    'Archivo': file.fileName,
+                    'Fecha de Carga': new Date(file.uploadTime).toLocaleString('es-ES'),
+                    'Registros': file.data.length,
+                    'Período': file.month && file.year ? `${file.month}/${file.year}` : 'No especificado'
+                });
+            });
+
+            const ws_trace = XLSX.utils.json_to_sheet(traceabilityData);
+            XLSX.utils.book_append_sheet(wb, ws_trace, 'Trazabilidad');
+
+            // Descargar archivo consolidado
+            const fileName = `Intrastat_Consolidado_AEAT_${new Date().toISOString().slice(0,10)}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            
+            showAlert(`Archivo consolidado ${fileName} descargado exitosamente`, 'success');
+        }
+
+        // Funciones de utilidad
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const area = event.currentTarget;
+            area.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            handleFiles(files);
+        }
+
+        function showProgress(show) {
+            document.getElementById('progressSection').style.display = show ? 'block' : 'none';
+        }
+
+        function updateProgress(percentage, text) {
+            document.getElementById('progressFill').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = text;
+        }
+
+        function showLog(show) {
+            document.getElementById('logSection').style.display = show ? 'block' : 'none';
+        }
+
+        function log(message) {
+            const logArea = document.getElementById('logArea');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `[${timestamp}] ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function showAlert(message, type) {
+            // Crear elemento de alerta
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <strong>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</strong> ${message}
+                <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; font-size: 1.2em; cursor: pointer;">×</button>
+            `;
+            
+            // Insertar al principio del contenido principal
+            const mainContent = document.querySelector('.main-content');
+            mainContent.insertBefore(alert, mainContent.firstChild);
+            
+            // Auto-remover después de 5 segundos
+            setTimeout(() => {
+                if (alert.parentElement) {
+                    alert.remove();
+                }
+            }, 5000);
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Event listeners globales para drag and drop
+        document.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+
+        document.addEventListener('drop', function(e) {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>
