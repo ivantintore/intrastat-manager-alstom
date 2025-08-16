@@ -1,0 +1,49 @@
+name: 🏷️ Auto Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🔢 Bump version
+      id: bump
+      run: |
+        CURRENT=$(grep -o 'app-version">[^<]*' index.html | sed 's/app-version">//')
+        echo "Current version: $CURRENT"
+        
+        IFS='.' read -r major minor patch <<< "$CURRENT"
+        
+        case "${{ github.event.inputs.version_type }}" in
+          "major") NEW_VERSION="$((major+1)).0.0" ;;
+          "minor") NEW_VERSION="$major.$((minor+1)).0" ;;
+          "patch") NEW_VERSION="$major.$minor.$((patch+1))" ;;
+        esac
+        
+        echo "New version: $NEW_VERSION"
+        sed -i "s/app-version\">$CURRENT/app-version\">$NEW_VERSION/" index.html
+        
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        
+    - name: 💾 Commit version bump
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add index.html
+        git commit -m "🏷️ Bump version to ${{ steps.bump.outputs.version }}"
+        git push
