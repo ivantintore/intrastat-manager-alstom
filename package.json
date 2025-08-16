@@ -4,7 +4,7 @@
   "description": "Gestor de Intrastat - Alstom Movilidad",
   "main": "index.html",
   "scripts": {
-    "start": "npx serve .",
+    "start": "npx serve . -s -p ${PORT:-3000}",
     "build": "echo 'No build needed'"
   },
   "dependencies": {
