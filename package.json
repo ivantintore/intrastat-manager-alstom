@@ -1,6 +1,6 @@
 {
   "name": "intrastat-manager-alstom",
-  "version": "1.5.8",
+  "version": "1.5.9",
   "description": "Gestor de Intrastat - Alstom Movilidad",
   "main": "index.html",
   "scripts": {
