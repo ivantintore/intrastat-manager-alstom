@@ -1016,36 +1016,143 @@
 
         // Funciones de procesamiento de archivos
         function processExcelFile(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    try {
-                        let data;
-                        
-                        if (file.name.endsWith('.csv')) {
-                            data = parseCSV(e.target.result);
-                        } else {
-                            const workbook = XLSX.read(e.target.result, { type: 'binary' });
-                            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                            data = XLSX.utils.sheet_to_json(firstSheet);
-                        }
-                        
-                        resolve(data);
-                    } catch (error) {
-                        reject(new Error(`Error procesando ${file.name}: ${error.message}`));
-                    }
-                };
-                
-                reader.onerror = () => reject(new Error(`Error leyendo el archivo ${file.name}`));
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            try {
+                let rawData;
                 
                 if (file.name.endsWith('.csv')) {
-                    reader.readAsText(file);
+                    rawData = parseCSV(e.target.result);
                 } else {
-                    reader.readAsBinaryString(file);
+                    const workbook = XLSX.read(e.target.result, { type: 'binary' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    rawData = XLSX.utils.sheet_to_json(firstSheet);
                 }
-            });
+                
+                // Mapear datos al formato AEAT
+                const aeatData = rawData.map(row => {
+                    // Detectar país (buscar códigos de 2 letras)
+                    const country = detectCountry(row);
+                    
+                    // Detectar código de mercancía (8 dígitos)
+                    const mercancyCode = detectMercancyCode(row);
+                    
+                    // Detectar valores monetarios
+                    const amount = detectAmount(row);
+                    
+                    // Detectar peso
+                    const weight = detectWeight(row);
+                    
+                    // Detectar NIF de contraparte
+                    const nif = detectNIF(row);
+                    
+                    return {
+                        estadoMiembro: country || 'FR', // País destino/origen
+                        provincia: '48', // Bizkaia por defecto
+                        condiciones: 'FCA', // Por defecto
+                        naturaleza: '11', // Por defecto
+                        transporte: '3', // Por defecto
+                        puerto: '', // Vacío por defecto
+                        codigoMercancia: mercancyCode || '85044095',
+                        paisOrigen: 'ES', // España por defecto para exports
+                        regimen: '', // Vacío por defecto
+                        masaNeta: weight || 0,
+                        unidadesSuplementarias: '', // Vacío por defecto
+                        importeFacturado: amount || 0,
+                        valorEstadistico: amount || 0,
+                        nifContraparte: nif || '',
+                        
+                        // Campos adicionales para trazabilidad
+                        archivoOrigen: file.name,
+                        datosOriginales: row
+                    };
+                });
+                
+                resolve(aeatData);
+            } catch (error) {
+                reject(new Error(`Error procesando ${file.name}: ${error.message}`));
+            }
+        };
+        
+        reader.onerror = () => reject(new Error(`Error leyendo el archivo ${file.name}`));
+        
+        if (file.name.endsWith('.csv')) {
+            reader.readAsText(file);
+        } else {
+            reader.readAsBinaryString(file);
         }
+    });
+}
+
+// Funciones auxiliares de detección
+function detectCountry(row) {
+    const keys = Object.keys(row);
+    for (let key of keys) {
+        const value = String(row[key]).toUpperCase();
+        if (/^[A-Z]{2}$/.test(value) && ['FR', 'DE', 'IT', 'PT', 'BE', 'NL', 'AT'].includes(value)) {
+            return value;
+        }
+    }
+    return null;
+}
+
+function detectMercancyCode(row) {
+    const keys = Object.keys(row);
+    for (let key of keys) {
+        const value = String(row[key]).replace(/\D/g, '');
+        if (value.length === 8) {
+            return value;
+        }
+    }
+    return null;
+}
+
+function detectAmount(row) {
+    const keys = Object.keys(row);
+    for (let key of keys) {
+        if (key.toLowerCase().includes('importe') || 
+            key.toLowerCase().includes('valor') ||
+            key.toLowerCase().includes('precio')) {
+            const value = parseFloat(String(row[key]).replace(/[^\d,.-]/g, '').replace(',', '.'));
+            if (!isNaN(value) && value > 0) {
+                return Math.abs(value);
+            }
+        }
+    }
+    return 0;
+}
+
+function detectWeight(row) {
+    const keys = Object.keys(row);
+    for (let key of keys) {
+        if (key.toLowerCase().includes('peso') || 
+            key.toLowerCase().includes('masa') ||
+            key.toLowerCase().includes('kg')) {
+            const value = parseFloat(String(row[key]).replace(/[^\d,.-]/g, '').replace(',', '.'));
+            if (!isNaN(value) && value > 0) {
+                return value;
+            }
+        }
+    }
+    return 0;
+}
+
+function detectNIF(row) {
+    const keys = Object.keys(row);
+    for (let key of keys) {
+        if (key.toLowerCase().includes('nif') || 
+            key.toLowerCase().includes('vat') ||
+            key.toLowerCase().includes('tax')) {
+            const value = String(row[key]).trim();
+            if (value.length > 5) {
+                return value;
+            }
+        }
+    }
+    return '';
+}
 
         function parseCSV(csvText) {
             const lines = csvText.split('\n');
@@ -1346,103 +1453,122 @@
 
         // Funciones de exportación
         function exportToExcel(type) {
-            const data = type === 'exports' ? processedData.consolidatedExports : processedData.consolidatedImports;
+    const data = type === 'exports' ? processedData.consolidatedExports : processedData.consolidatedImports;
+    
+    if (data.length === 0) {
+        showAlert('No hay datos para exportar', 'error');
+        return;
+    }
+
+    // Generar CSV formato AEAT
+    let csvContent = '';
+    
+    data.forEach(country => {
+        country.records.forEach(record => {
+            // Formato AEAT: Estado miembro;Provincia;Condiciones;Naturaleza;Transporte;Puerto;Código;País origen;Régimen;Masa;Unidades;Importe;Valor;NIF
+            const line = [
+                record.estadoMiembro || 'FR',
+                record.provincia || '48',
+                record.condiciones || 'FCA',
+                record.naturaleza || '11',
+                record.transporte || '3',
+                record.puerto || '',
+                record.codigoMercancia || '85044095',
+                record.paisOrigen || 'ES',
+                record.regimen || '',
+                record.masaNeta || '',
+                record.unidadesSuplementarias || '',
+                String(record.importeFacturado || 0).replace('.', ','),
+                String(record.valorEstadistico || record.importeFacturado || 0).replace('.', ','),
+                record.nifContraparte || ''
+            ].join(';');
             
-            if (data.length === 0) {
-                showAlert('No hay datos para exportar', 'error');
-                return;
-            }
+            csvContent += line + '\n';
+        });
+    });
 
-            // Crear workbook
-            const wb = XLSX.utils.book_new();
-            
-            // Preparar datos para la hoja de resumen
-            const summaryData = data.map(country => ({
-                'País': country.country,
-                'Valor Total (€)': country.totalValue,
-                'Peso Total (kg)': country.totalWeight,
-                'Número de Registros': country.records.length,
-                'Archivos Fuente': country.sourceFiles ? Array.from(country.sourceFiles).join(', ') : 'N/A'
-            }));
-
-            // Crear hoja de resumen
-            const ws_summary = XLSX.utils.json_to_sheet(summaryData);
-            XLSX.utils.book_append_sheet(wb, ws_summary, 'Resumen por País');
-
-            // Crear hoja detallada
-            const detailData = [];
-            data.forEach(country => {
-                country.records.forEach(record => {
-                    detailData.push({
-                        'País': country.country,
-                        'Archivo Fuente': record.sourceFile || 'N/A',
-                        ...record
-                    });
-                });
-            });
-
-            const ws_detail = XLSX.utils.json_to_sheet(detailData);
-            XLSX.utils.book_append_sheet(wb, ws_detail, 'Detalle Completo');
-
-            // Descargar
-            const fileName = `Intrastat_${type === 'exports' ? 'Exportaciones' : 'Importaciones'}_${new Date().toISOString().slice(0,10)}.xlsx`;
-            XLSX.writeFile(wb, fileName);
-            
-            showAlert(`Archivo ${fileName} descargado exitosamente`, 'success');
-        }
+    // Crear y descargar archivo CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `AEAT_${type === 'exports' ? 'Exportaciones' : 'Importaciones'}_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showAlert(`Archivo CSV AEAT descargado exitosamente`, 'success');
+}
 
         function exportConsolidated() {
-            if (processedData.consolidatedExports.length === 0 && processedData.consolidatedImports.length === 0) {
-                showAlert('No hay datos procesados para exportar', 'error');
-                return;
-            }
+    if (processedData.consolidatedExports.length === 0 && processedData.consolidatedImports.length === 0) {
+        showAlert('No hay datos procesados para exportar', 'error');
+        return;
+    }
 
-            const wb = XLSX.utils.book_new();
+    // Generar archivo consolidado con ambos tipos
+    let csvContent = '';
+    
+    // Exportaciones
+    processedData.consolidatedExports.forEach(country => {
+        country.records.forEach(record => {
+            const line = [
+                record.estadoMiembro || 'FR',
+                record.provincia || '48',
+                record.condiciones || 'FCA',
+                record.naturaleza || '11',
+                record.transporte || '3',
+                record.puerto || '',
+                record.codigoMercancia || '85044095',
+                record.paisOrigen || 'ES',
+                record.regimen || '',
+                record.masaNeta || '',
+                record.unidadesSuplementarias || '',
+                String(record.importeFacturado || 0).replace('.', ','),
+                String(record.valorEstadistico || record.importeFacturado || 0).replace('.', ','),
+                record.nifContraparte || ''
+            ].join(';');
+            csvContent += line + '\n';
+        });
+    });
+    
+    // Importaciones  
+    processedData.consolidatedImports.forEach(country => {
+        country.records.forEach(record => {
+            const line = [
+                record.estadoMiembro || 'FR',
+                record.provincia || '48',
+                record.condiciones || 'FCA',
+                record.naturaleza || '11',
+                record.transporte || '3',
+                record.puerto || '',
+                record.codigoMercancia || '85044095',
+                record.paisOrigen || (record.estadoMiembro || 'FR'), // Para imports, país origen es el de la contraparte
+                record.regimen || '',
+                record.masaNeta || '',
+                record.unidadesSuplementarias || '',
+                String(record.importeFacturado || 0).replace('.', ','),
+                String(record.valorEstadistico || record.importeFacturado || 0).replace('.', ','),
+                record.nifContraparte || ''
+            ].join(';');
+            csvContent += line + '\n';
+        });
+    });
 
-            // Hoja de resumen ejecutivo
-            const executiveSummary = [{
-                'Tipo': 'Exportaciones',
-                'Países': processedData.consolidatedExports.length,
-                'Valor Total (€)': processedData.consolidatedExports.reduce((sum, exp) => sum + exp.totalValue, 0),
-                'Peso Total (kg)': processedData.consolidatedExports.reduce((sum, exp) => sum + exp.totalWeight, 0)
-            }, {
-                'Tipo': 'Importaciones',
-                'Países': processedData.consolidatedImports.length,
-                'Valor Total (€)': processedData.consolidatedImports.reduce((sum, imp) => sum + imp.totalValue, 0),
-                'Peso Total (kg)': processedData.consolidatedImports.reduce((sum, imp) => sum + imp.totalWeight, 0)
-            }];
-
-            const ws_executive = XLSX.utils.json_to_sheet(executiveSummary);
-            XLSX.utils.book_append_sheet(wb, ws_executive, 'Resumen Ejecutivo');
-
-            // Exportaciones consolidadas
-            if (processedData.consolidatedExports.length > 0) {
-                const exportsData = processedData.consolidatedExports.map(country => ({
-                    'País de Destino': country.country,
-                    'Valor Total (€)': country.totalValue,
-                    'Peso Total (kg)': country.totalWeight,
-                    'Número de Registros': country.records.length,
-                    'Archivos Fuente': country.sourceFiles ? Array.from(country.sourceFiles).join(', ') : 'N/A'
-                }));
-
-                const ws_exports = XLSX.utils.json_to_sheet(exportsData);
-                XLSX.utils.book_append_sheet(wb, ws_exports, 'Exportaciones AEAT');
-            }
-
-            // Importaciones consolidadas
-            if (processedData.consolidatedImports.length > 0) {
-                const importsData = processedData.consolidatedImports.map(country => ({
-                    'País de Origen': country.country,
-                    'Valor Total (€)': country.totalValue,
-                    'Peso Total (kg)': country.totalWeight,
-                    'Número de Registros': country.records.length,
-                    'Archivos Fuente': country.sourceFiles ? Array.from(country.sourceFiles).join(', ') : 'N/A'
-                }));
-
-                const ws_imports = XLSX.utils.json_to_sheet(importsData);
-                XLSX.utils.book_append_sheet(wb, ws_imports, 'Importaciones AEAT');
-            }
-
+    // Descargar archivo consolidado
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `AEAT_Consolidado_Intrastat_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showAlert(`Archivo CSV consolidado AEAT descargado exitosamente`, 'success');
+}
             // Metadatos y trazabilidad
             const metadata = [{
                 'Fecha de Procesamiento': new Date().toLocaleString('es-ES'),
