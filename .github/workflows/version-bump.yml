@@ -18,6 +18,11 @@ on:
       - '.github/**'
       - 'README.md'
 
+# SOLUCIÓN: Añadir permisos explícitos
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   version-bump:
     runs-on: ubuntu-latest
@@ -27,7 +32,15 @@ jobs:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
       with:
+        # SOLUCIÓN: Usar fetch-depth 0 y configurar Git correctamente
         token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+        
+    - name: 🔧 Configure Git
+      run: |
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git config --global push.default current
         
     - name: 🔢 Bump version
       id: bump
@@ -59,11 +72,25 @@ jobs:
         IFS='.' read -r major minor patch <<< "$CURRENT"
         echo "Parsed - Major: $major, Minor: $minor, Patch: $patch"
         
-        # Incrementar patch por defecto
-        NEW_PATCH=$((patch + 1))
-        NEW_VERSION="$major.$minor.$NEW_PATCH"
+        # Incrementar según el tipo de versión (si viene de workflow_dispatch)
+        VERSION_TYPE="${{ github.event.inputs.version_type }}"
+        if [ -z "$VERSION_TYPE" ]; then
+          VERSION_TYPE="patch"
+        fi
         
-        echo "New version: $NEW_VERSION"
+        case $VERSION_TYPE in
+          major)
+            NEW_VERSION="$((major + 1)).0.0"
+            ;;
+          minor)
+            NEW_VERSION="$major.$((minor + 1)).0"
+            ;;
+          patch|*)
+            NEW_VERSION="$major.$minor.$((patch + 1))"
+            ;;
+        esac
+        
+        echo "New version: $NEW_VERSION (type: $VERSION_TYPE)"
         
         # Verificar que la nueva versión es diferente
         if [ "$CURRENT" = "$NEW_VERSION" ]; then
@@ -99,10 +126,27 @@ jobs:
         echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
         echo "=== Version bump completed successfully ==="
         
-    - name: 💾 Commit version bump
+    - name: 💾 Commit and push version bump
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        # Verificar si hay cambios
+        if git diff --quiet && git diff --cached --quiet; then
+          echo "No changes to commit"
+          exit 0
+        fi
+        
+        # Hacer commit y push
         git add Index.html package.json
-        git commit -m "Bump version to ${{ steps.bump.outputs.version }}" || exit 0
-        git push
+        git commit -m "🔖 Bump version to ${{ steps.bump.outputs.version }}"
+        
+        # Intentar push con retry
+        for i in {1..3}; do
+          echo "Push attempt $i..."
+          if git push origin main; then
+            echo "Push successful!"
+            break
+          else
+            echo "Push failed, retrying in 5 seconds..."
+            sleep 5
+            git pull --rebase origin main
+          fi
+        done
