@@ -1609,22 +1609,24 @@ function detectNIF(row) {
         country.records.forEach(record => {
             console.log('📄 Procesando registro:', record);
             
-            // FORMATO AEAT EXACTO:
-            // Estado miembro(A2) - Provincia(N2) - Condiciones(A3) - Naturaleza(N2) - Transporte(N1) - Puerto(N4) - Código(N8) - País Origen(A2) - Régimen(N1) - Masa(N12) - Unidades(N12) - Importe(N13,2) - Valor(N13,2) - NIF(A2X)
+            // FORMATO AEAT EXACTO según especificación oficial:
+            // Estado miembro(A2);Provincia(N2);Condiciones(A3);Naturaleza(N2);Transporte(N1);Puerto(N4);Código(N8);País Origen(A2);Régimen(N1);Masa(N12,3);Unidades(N12,3);Importe(N13,2);Valor(N13,2);NIF(A2X)
             
             const estadoMiembro = record.estadoMiembro || country.country || 'FR';
-            const provincia = record.provincia || '48';
-            const condiciones = record.condiciones || 'FOB';
-            const naturaleza = record.naturaleza || '11';
-            const transporte = record.transporte || '3';
-            const puerto = record.puerto || ''; // Opcional
+            const provincia = record.provincia || '48'; // Siempre 48 para Bizkaia
+            const condiciones = record.condiciones || 'FCA'; // FCA según los ejemplos AEAT
+            const naturaleza = record.naturaleza || '11'; // Siempre 11
+            const transporte = record.transporte || '3'; // Siempre 3 para transporte por carretera
+            const puerto = ''; // Campo opcional, siempre vacío en los ejemplos
             const codigoMercancia = record.codigoMercancia || '85044095';
             const paisOrigen = type === 'exports' ? 'ES' : (record.paisOrigen || estadoMiembro);
-            const regimen = record.regimen || '1';
-            const masaNeta = (record.masaNeta || record.importeFacturado || 0).toFixed(3).replace('.', ',');
-            const unidadesSuplementarias = '0,000'; // Siempre 0,000 según el ejemplo
-            const importeFacturado = (record.importeFacturado || 0).toFixed(2).replace('.', ',');
-            const valorEstadistico = (record.valorEstadistico || record.importeFacturado || 0).toFixed(2).replace('.', ',');
+            const regimen = record.regimen || '1'; // Siempre 1
+            
+            // Formatear números según especificación AEAT con comas decimales
+            const masaNeta = (record.masaNeta || 0).toFixed(3).replace('.', ',');
+            const unidadesSuplementarias = '0,000'; // Siempre 0,000
+            const importeFacturado = Math.abs(record.importeFacturado || 0).toFixed(2).replace('.', ',');
+            const valorEstadistico = Math.abs(record.valorEstadistico || record.importeFacturado || 0).toFixed(2).replace('.', ',');
             const nifContraparte = record.nifContraparte || '';
             
             // Construir línea exacta AEAT
