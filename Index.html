@@ -1,598 +1,4 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Intrastat - Alstom Movilidad</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 300;
-        }
-
-        .header p {
-            font-size: 1.2em;
-            opacity: 0.9;
-        }
-
-        .main-content {
-            padding: 40px;
-        }
-
-        .section {
-            margin-bottom: 40px;
-        }
-
-        .section h2 {
-            color: #2c3e50;
-            margin-bottom: 20px;
-            font-size: 1.8em;
-            border-bottom: 3px solid #3498db;
-            padding-bottom: 10px;
-        }
-
-        .upload-area {
-            border: 3px dashed #3498db;
-            border-radius: 15px;
-            padding: 40px;
-            text-align: center;
-            background: #f8f9fa;
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .upload-area:hover {
-            background: #e3f2fd;
-            border-color: #2196f3;
-        }
-
-        .upload-area.dragover {
-            background: #e1f5fe;
-            border-color: #01579b;
-        }
-
-        .upload-icon {
-            font-size: 3em;
-            color: #3498db;
-            margin-bottom: 20px;
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #3498db, #2980b9);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1em;
-            transition: all 0.3s ease;
-            margin: 5px;
-            display: inline-block;
-            text-decoration: none;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #27ae60, #2ecc71);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-        }
-
-        .btn-large {
-            padding: 20px 40px;
-            font-size: 1.2em;
-        }
-
-        .file-list {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-
-        .file-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .file-info {
-            flex: 1;
-        }
-
-        .file-name {
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-
-        .file-details {
-            font-size: 0.9em;
-            color: #7f8c8d;
-        }
-
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .summary-card {
-            background: linear-gradient(135deg, #fff, #f8f9fa);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-            border-left: 5px solid #3498db;
-        }
-
-        .summary-card h3 {
-            color: #2c3e50;
-            margin-bottom: 15px;
-            font-size: 1.3em;
-        }
-
-        .summary-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #3498db;
-            margin-bottom: 5px;
-        }
-
-        .summary-label {
-            color: #7f8c8d;
-            font-size: 0.9em;
-        }
-
-        .tabs {
-            display: flex;
-            background: #ecf0f1;
-            border-radius: 10px;
-            padding: 5px;
-            margin-bottom: 20px;
-        }
-
-        .tab {
-            flex: 1;
-            padding: 15px;
-            text-align: center;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 600;
-        }
-
-        .tab.active {
-            background: #3498db;
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            font-size: 0.9em;
-        }
-
-        .data-table th,
-        .data-table td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #ecf0f1;
-        }
-
-        .data-table th {
-            background: #2c3e50;
-            color: white;
-            font-weight: 600;
-            font-size: 0.8em;
-        }
-
-        .data-table tr:hover {
-            background: #f8f9fa;
-        }
-
-        .alert {
-            padding: 15px;
-            border-radius: 10px;
-            margin: 10px 0;
-        }
-
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .alert-info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .export-section {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 30px;
-            margin-top: 30px;
-            text-align: center;
-        }
-
-        .country-breakdown {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .country-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-            border-left: 4px solid #e74c3c;
-        }
-
-        .mapping-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-
-        .mapping-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-top: 15px;
-        }
-
-        .mapping-column {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-        }
-
-        .mapping-column h4 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-            font-size: 1.1em;
-        }
-
-        .field-mapping {
-            margin-bottom: 10px;
-            padding: 8px;
-            background: #f8f9fa;
-            border-radius: 5px;
-            font-size: 0.9em;
-        }
-
-        .progress-section {
-            margin: 20px 0;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #ecf0f1;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #3498db, #2ecc71);
-            width: 0%;
-            transition: width 0.5s ease;
-        }
-
-        .log-area {
-            background: #2c3e50;
-            color: #ecf0f1;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                margin: 10px;
-                border-radius: 10px;
-            }
-            
-            .main-content {
-                padding: 20px;
-            }
-            
-            .summary-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .mapping-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-<!-- Version and Deployment Info -->
-<div style="position: absolute; top: 10px; right: 15px; font-size: 0.8em; color: rgba(255,255,255,0.8); z-index: 1000;">
-    <div id="version-info" style="text-align: right; margin-bottom: 5px;">
-        <span style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 12px; display: inline-block;">
-            📦 v<span id="app-version">1.3.0</span>
-        </span>
-    </div>
-    <div id="deployment-info" style="text-align: right;">
-        <span id="deployment-status" style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 12px; display: inline-block;">
-            🚀 <span id="deployment-time">Cargando...</span>
-        </span>
-    </div>
-</div>
-            <h1>🚂 Gestor de Intrastat</h1>
-            <p>Alstom Movilidad - Procesamiento y Consolidación de Datos Intrastat</p>
-        </div>
-
-        <div class="main-content">
-            <!-- Pestañas de navegación -->
-            <div class="tabs">
-                <div class="tab active" onclick="switchTab('processor')">🔄 Procesador</div>
-                <div class="tab" onclick="switchTab('exports')">📤 Exportaciones</div>
-                <div class="tab" onclick="switchTab('imports')">📥 Importaciones</div>
-                <div class="tab" onclick="switchTab('summary')">📊 Resumen Final</div>
-            </div>
-
-            <!-- Procesador Principal -->
-            <div id="processor" class="tab-content active">
-                <div class="section">
-                    <h2>🔄 Procesamiento de Archivos Alstom</h2>
-                    
-                    <div class="alert alert-info">
-                        <strong>📋 Flujo de trabajo:</strong>
-                        <ol style="margin-top: 10px; margin-left: 20px;">
-                            <li>Sube los archivos Excel desestructurados de las delegaciones</li>
-                            <li>El sistema los procesará y mapeará al formato AEAT</li>
-                            <li>Revisa y valida los datos procesados</li>
-                            <li>Descarga el archivo CSV final para AEAT</li>
-                        </ol>
-                    </div>
-
-                    <div class="upload-area" id="main-upload" onclick="document.getElementById('main-files').click()" 
-                         ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-                        <div class="upload-icon">📁</div>
-                        <h3>Arrastra archivos Excel/CSV de Alstom aquí</h3>
-                        <p>Archivos soportados: .xlsx, .xls, .csv</p>
-                        <p><strong>Procesa automáticamente:</strong> Expediciones e Importaciones</p>
-                        <input type="file" id="main-files" class="file-input" multiple accept=".xlsx,.xls,.csv">
-                    </div>
-
-                    <div id="progress-section" class="progress-section" style="display: none;">
-                        <h3>Procesando archivos...</h3>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progress-fill"></div>
-                        </div>
-                        <p id="progress-text">Iniciando...</p>
-                    </div>
-
-                    <div id="log-section" style="display: none;">
-                        <h3>Log de Procesamiento:</h3>
-                        <div id="log-area" class="log-area"></div>
-                    </div>
-
-                    <div id="processed-files" class="file-list" style="display: none;">
-                        <h3>Archivos Procesados:</h3>
-                        <div id="processed-files-container"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Contenido de Exportaciones -->
-            <div id="exports" class="tab-content">
-                <div class="section">
-                    <h2>📤 Exportaciones Procesadas (Expediciones)</h2>
-                    
-                    <div class="summary-grid" id="export-summary">
-                        <div class="summary-card">
-                            <h3>Total Registros</h3>
-                            <div class="summary-value" id="export-total-records">0</div>
-                            <div class="summary-label">expediciones procesadas</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Valor Total</h3>
-                            <div class="summary-value" id="export-total-value">€0</div>
-                            <div class="summary-label">importe facturado</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Países Destino</h3>
-                            <div class="summary-value" id="export-countries">0</div>
-                            <div class="summary-label">países diferentes</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Masa Neta Total</h3>
-                            <div class="summary-value" id="export-total-weight">0</div>
-                            <div class="summary-label">kg exportados</div>
-                        </div>
-                    </div>
-
-                    <div id="export-data-section" style="display: none;">
-                        <h3>Datos de Exportación (Primeros 100 registros):</h3>
-                        <div style="overflow-x: auto;">
-                            <table class="data-table" id="export-data-table">
-                                <thead>
-                                    <tr>
-                                        <th>País</th>
-                                        <th>Provincia</th>
-                                        <th>Cond. Entrega</th>
-                                        <th>Nat. Trans.</th>
-                                        <th>Transporte</th>
-                                        <th>Puerto</th>
-                                        <th>Cód. Mercancía</th>
-                                        <th>País Origen</th>
-                                        <th>Reg. Est.</th>
-                                        <th>Masa Neta</th>
-                                        <th>Unid. Supl.</th>
-                                        <th>Imp. Facturado</th>
-                                        <th>Valor Est.</th>
-                                        <th>NIF Contraparte</th>
-                                        <th>Origen</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Contenido de Importaciones -->
-            <div id="imports" class="tab-content">
-                <div class="section">
-                    <h2>📥 Importaciones Procesadas</h2>
-                    
-                    <div class="summary-grid" id="import-summary">
-                        <div class="summary-card">
-                            <h3>Total Registros</h3>
-                            <div class="summary-value" id="import-total-records">0</div>
-                            <div class="summary-label">importaciones procesadas</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Valor Total</h3>
-                            <div class="summary-value" id="import-total-value">€0</div>
-                            <div class="summary-label">importe facturado</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Países Origen</h3>
-                            <div class="summary-value" id="import-countries">0</div>
-                            <div class="summary-label">países diferentes</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Masa Neta Total</h3>
-                            <div class="summary-value" id="import-total-weight">0</div>
-                            <div class="summary-label">kg importados</div>
-                        </div>
-                    </div>
-
-                    <div id="import-data-section" style="display: none;">
-                        <h3>Datos de Importación (Primeros 100 registros):</h3>
-                        <div style="overflow-x: auto;">
-                            <table class="data-table" id="import-data-table">
-                                <thead>
-                                    <tr>
-                                        <th>País</th>
-                                        <th>Provincia</th>
-                                        <th>Cond. Entrega</th>
-                                        <th>Nat. Trans.</th>
-                                        <th>Transporte</th>
-                                        <th>Puerto</th>
-                                        <th>Cód. Mercancía</th>
-                                        <th>País Origen</th>
-                                        <th>Reg. Est.</th>
-                                        <th>Masa Neta</th>
-                                        <th>Unid. Supl.</th>
-                                        <th>Imp. Facturado</th>
-                                        <th>Valor Est.</th>
-                                        <th>NIF Contraparte</th>
-                                        <th>Origen</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Resumen Final -->
-            <div id="summary" class="tab-content">
-                <div class="section">
-                    <h2>📊 Resumen Final y Exportación</h2>
-                    
-                    <div class="summary-grid">
-                        <div class="summary-card">
-                            <h3>Total General</h3>
-                            <div class="summary-value" id="total-records">0</div>
-                            <div class="summary-label">registros procesados</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Valor Comercio</h3>
-                            <div class="summary-value" id="total-trade-value">€0</div>
-                            <div class="summary-label">valor total comercio</div>
-                        </div>
-                        <div class="summary-card">
-                            <h3>Archivos Origen</h3>
-                            <div class="summary-value" id="total-files">0</div>
-                            <div class="summary-label">archivos procesados</div>
-                        </div>
-                        <div class="summary-card">
+<div class="summary-card">
                             <h3>Países Únicos</h3>
                             <div class="summary-value" id="total-countries">0</div>
                             <div class="summary-label">países comercio</div>
@@ -629,28 +35,319 @@
     </div>
 
     <script>
-        // Variables globales
+        // Variables globales ampliadas
         let exportData = [];
         let importData = [];
         let processedFiles = [];
-        let currentTab = 'processor';
+        let currentTab = 'monthly-manager';
+        
+        // Sistema de gestión por meses
+        let monthlyData = {
+            currentMonth: '06',
+            currentYear: '2025',
+            folders: {}
+        };
 
         // Inicializar la aplicación
         document.addEventListener('DOMContentLoaded', function() {
             setupEventListeners();
+            initializeMonthlySystem();
             logMessage('Sistema inicializado. Listo para procesar archivos de Alstom.');
-// Mostrar información de deployment
-updateDeploymentInfo();
+            // Mostrar información de deployment
+            updateDeploymentInfo();
         });
 
         function setupEventListeners() {
+            // Procesador rápido (legacy)
             document.getElementById('main-files').addEventListener('change', handleFileSelect);
             
-            // Drag and drop
+            // Gestión por meses
+            document.getElementById('export-files').addEventListener('change', (e) => handleClassifiedFileSelect(e, 'export'));
+            document.getElementById('import-files').addEventListener('change', (e) => handleClassifiedFileSelect(e, 'import'));
+            
+            // Drag and drop para procesador rápido
             const uploadArea = document.getElementById('main-upload');
-            uploadArea.addEventListener('drop', handleDrop);
-            uploadArea.addEventListener('dragover', handleDragOver);
-            uploadArea.addEventListener('dragleave', handleDragLeave);
+            if (uploadArea) {
+                uploadArea.addEventListener('drop', handleDrop);
+                uploadArea.addEventListener('dragover', handleDragOver);
+                uploadArea.addEventListener('dragleave', handleDragLeave);
+            }
+        }
+
+        function initializeMonthlySystem() {
+            loadMonthData();
+            updateFolderDisplay();
+        }
+
+        function loadMonthData() {
+            const month = document.getElementById('month-select').value;
+            const year = document.getElementById('year-select').value;
+            
+            monthlyData.currentMonth = month;
+            monthlyData.currentYear = year;
+            
+            const monthNames = {
+                '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+                '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+                '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+            };
+            
+            const monthKey = `${year}-${month}`;
+            
+            // Inicializar estructura del mes si no existe
+            if (!monthlyData.folders[monthKey]) {
+                monthlyData.folders[monthKey] = {
+                    exports: [],
+                    imports: []
+                };
+            }
+            
+            // Actualizar display
+            document.getElementById('current-month-display').innerHTML = 
+                `<strong>📁 Trabajando en: ${monthNames[month]} ${year}</strong>`;
+            document.getElementById('folder-title').textContent = `${monthNames[month]} ${year}`;
+            
+            updateFolderDisplay();
+            monthLogMessage(`📁 Cargado período: ${monthNames[month]} ${year}`);
+        }
+
+        function handleClassifiedFileSelect(event, type) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                addFilesToMonth(files, type);
+            }
+        }
+
+        function handleClassifiedDrop(event, type) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('dragover');
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                addFilesToMonth(files, type);
+            }
+        }
+
+        async function addFilesToMonth(files, type) {
+            const monthKey = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
+            const typeKey = type + 's'; // 'export' -> 'exports', 'import' -> 'imports'
+            
+            monthLogMessage(`📁 Agregando ${files.length} archivo(s) a ${type === 'export' ? 'Exportaciones' : 'Importaciones'}...`);
+            
+            for (let file of files) {
+                // Leer contenido del archivo para guardarlo
+                const fileData = await readFileAsDataURL(file);
+                
+                const fileInfo = {
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    uploadedAt: new Date(),
+                    content: fileData,
+                    classification: type
+                };
+                
+                monthlyData.folders[monthKey][typeKey].push(fileInfo);
+                monthLogMessage(`✅ Agregado: ${file.name} (${(file.size/1024).toFixed(1)} KB)`);
+            }
+            
+            updateFolderDisplay();
+            
+            // Limpiar inputs
+            document.getElementById('export-files').value = '';
+            document.getElementById('import-files').value = '';
+        }
+
+        function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function updateFolderDisplay() {
+            const monthKey = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
+            const monthData = monthlyData.folders[monthKey] || { exports: [], imports: [] };
+            
+            // Actualizar contadores
+            document.getElementById('export-count').textContent = `${monthData.exports.length} archivo${monthData.exports.length !== 1 ? 's' : ''}`;
+            document.getElementById('import-count').textContent = `${monthData.imports.length} archivo${monthData.imports.length !== 1 ? 's' : ''}`;
+            
+            // Actualizar listas de archivos
+            updateFileList('export-files-list', monthData.exports, 'export');
+            updateFileList('import-files-list', monthData.imports, 'import');
+            
+            // Habilitar botón de procesamiento si hay archivos
+            const hasFiles = monthData.exports.length > 0 || monthData.imports.length > 0;
+            document.getElementById('process-month-btn').disabled = !hasFiles;
+        }
+
+        function updateFileList(containerId, files, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            files.forEach((file, index) => {
+                const fileElement = document.createElement('div');
+                fileElement.style.cssText = 'display: flex; align-items: center; padding: 5px; margin: 2px 0; background: white; border-radius: 5px; font-size: 0.85em;';
+                
+                const iconColor = type === 'export' ? '#27ae60' : '#e74c3c';
+                
+                fileElement.innerHTML = `
+                    <span style="color: ${iconColor};">📄</span>
+                    <span style="margin-left: 8px; flex: 1;">${file.name}</span>
+                    <span style="color: #666; font-size: 0.8em;">${(file.size/1024).toFixed(1)} KB</span>
+                    <button onclick="removeFileFromMonth('${type}', ${index})" style="margin-left: 8px; background: #e74c3c; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 0.7em;">✕</button>
+                `;
+                
+                container.appendChild(fileElement);
+            });
+            
+            if (files.length === 0) {
+                container.innerHTML = '<div style="color: #999; font-style: italic; padding: 10px;">No hay archivos</div>';
+            }
+        }
+
+        function removeFileFromMonth(type, index) {
+            const monthKey = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
+            const typeKey = type + 's';
+            
+            const fileName = monthlyData.folders[monthKey][typeKey][index].name;
+            monthlyData.folders[monthKey][typeKey].splice(index, 1);
+            
+            monthLogMessage(`🗑️ Eliminado: ${fileName}`);
+            updateFolderDisplay();
+        }
+
+        async function processCurrentMonth() {
+            const monthKey = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
+            const monthData = monthlyData.folders[monthKey];
+            
+            if (!monthData || (monthData.exports.length === 0 && monthData.imports.length === 0)) {
+                alert('No hay archivos para procesar en este mes.');
+                return;
+            }
+            
+            showMonthProgress();
+            monthLogMessage('🚀 Iniciando procesamiento del mes completo...');
+            
+            // Limpiar datos anteriores
+            exportData = [];
+            importData = [];
+            processedFiles = [];
+            
+            let totalFiles = monthData.exports.length + monthData.imports.length;
+            let processedCount = 0;
+            
+            // Procesar exportaciones
+            for (let fileInfo of monthData.exports) {
+                try {
+                    monthLogMessage(`📤 Procesando exportación: ${fileInfo.name}`);
+                    updateMonthProgress((processedCount / totalFiles) * 100, `Procesando ${fileInfo.name}...`);
+                    
+                    const file = await dataURLToFile(fileInfo.content, fileInfo.name, fileInfo.type);
+                    const result = await processFile(file);
+                    
+                    if (result) {
+                        // Forzar clasificación como exportación
+                        result.type = 'export';
+                        result.monthSource = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
+                        
+                        processedFiles.push({
+                            name: fileInfo.name,
+                            size: fileInfo.size,
+                            type: 'export',
+                            recordCount: result.recordCount,
+                            processedAt: new Date(),
+                            monthSource: result.monthSource
+                        });
+                        
+                        exportData = exportData.concat(result.data);
+                        monthLogMessage(`✅ ${fileInfo.name}: ${result.recordCount} registros como exportación`);
+                    }
+                } catch (error) {
+                    monthLogMessage(`❌ Error procesando ${fileInfo.name}: ${error.message}`);
+                }
+                processedCount++;
+            }
+            
+            // Procesar importaciones
+            for (let fileInfo of monthData.imports) {
+                try {
+                    monthLogMessage(`📥 Procesando importación: ${fileInfo.name}`);
+                    updateMonthProgress((processedCount / totalFiles) * 100, `Procesando ${fileInfo.name}...`);
+                    
+                    const file = await dataURLToFile(fileInfo.content, fileInfo.name, fileInfo.type);
+                    const result = await processFile(file);
+                    
+                    if (result) {
+                        // Forzar clasificación como importación
+                        result.type = 'import';
+                        result.monthSource = `${monthlyData.currentYear}-${monthlyData.currentMonth}`;
+                        
+                        processedFiles.push({
+                            name: fileInfo.name,
+                            size: fileInfo.size,
+                            type: 'import',
+                            recordCount: result.recordCount,
+                            processedAt: new Date(),
+                            monthSource: result.monthSource
+                        });
+                        
+                        importData = importData.concat(result.data);
+                        monthLogMessage(`✅ ${fileInfo.name}: ${result.recordCount} registros como importación`);
+                    }
+                } catch (error) {
+                    monthLogMessage(`❌ Error procesando ${fileInfo.name}: ${error.message}`);
+                }
+                processedCount++;
+            }
+            
+            updateMonthProgress(100, 'Procesamiento del mes completado');
+            updateSummaries();
+            showProcessedFiles();
+            enableDownloads();
+            
+            monthLogMessage(`🎉 Mes procesado completamente. Total: ${exportData.length} exportaciones, ${importData.length} importaciones`);
+            
+            // Cambiar a pestaña de resumen
+            switchTab('summary');
+        }
+
+        function dataURLToFile(dataURL, filename, mimeType) {
+            return new Promise((resolve) => {
+                const byteString = atob(dataURL.split(',')[1]);
+                const arrayBuffer = new ArrayBuffer(byteString.length);
+                const uint8Array = new Uint8Array(arrayBuffer);
+                
+                for (let i = 0; i < byteString.length; i++) {
+                    uint8Array[i] = byteString.charCodeAt(i);
+                }
+                
+                const blob = new Blob([uint8Array], { type: mimeType });
+                const file = new File([blob], filename, { type: mimeType });
+                resolve(file);
+            });
+        }
+
+        function showMonthProgress() {
+            document.getElementById('month-progress-section').style.display = 'block';
+            document.getElementById('month-log-section').style.display = 'block';
+        }
+
+        function updateMonthProgress(percentage, message) {
+            document.getElementById('month-progress-fill').style.width = percentage + '%';
+            document.getElementById('month-progress-text').textContent = message;
+        }
+
+        function monthLogMessage(message) {
+            const logArea = document.getElementById('month-log-area');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `[${timestamp}] ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+            
+            // También enviarlo al log principal para backward compatibility
+            logMessage(message);
         }
 
         function switchTab(tabName) {
@@ -1023,7 +720,6 @@ updateDeploymentInfo();
             }).filter(item => item !== null);
         }
 
-
         function updateSummaries() {
             updateExportSummary();
             updateImportSummary();
@@ -1284,8 +980,21 @@ updateDeploymentInfo();
 
         function generateConsolidatedReport() {
             const now = new Date();
-            const report = `
+            const monthNames = {
+                '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
+                '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
+                '09': 'Septiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
+            };
+            
+            const currentMonthName = monthNames[monthlyData.currentMonth];
+            
+            // Crear mapa de archivos por tipo para trazabilidad
+            const exportFiles = processedFiles.filter(f => f.type === 'export');
+            const importFiles = processedFiles.filter(f => f.type === 'import');
+            
+            let report = `
 INFORME CONSOLIDADO INTRASTAT - ALSTOM MOVILIDAD
+Período: ${currentMonthName} ${monthlyData.currentYear}
 Generado: ${now.toLocaleString()}
 
 ═══════════════════════════════════════════════════════════════
@@ -1301,19 +1010,38 @@ EXPORTACIONES (EXPEDICIONES):
 - Masa neta total: ${exportData.reduce((sum, item) => sum + item.masaNeta, 0).toLocaleString('es-ES')} kg
 - Países destino: ${[...new Set(exportData.map(item => item.estadoMiembro))].join(', ')}
 
+ARCHIVOS FUENTE - EXPORTACIONES:
+${exportFiles.map(file => `- ${file.name} (${file.recordCount} registros)`).join('\n')}
+
 IMPORTACIONES:
 - Número de registros: ${importData.length}
 - Valor total: €${importData.reduce((sum, item) => sum + item.importeFactura, 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}
 - Masa neta total: ${importData.reduce((sum, item) => sum + item.masaNeta, 0).toLocaleString('es-ES')} kg
 - Países origen: ${[...new Set(importData.map(item => item.estadoMiembro))].join(', ')}
 
-ARCHIVOS PROCESADOS:
-${processedFiles.map(file => `- ${file.name} (${file.recordCount} registros, ${file.type === 'export' ? 'Exportación' : 'Importación'})`).join('\n')}
+ARCHIVOS FUENTE - IMPORTACIONES:
+${importFiles.map(file => `- ${file.name} (${file.recordCount} registros)`).join('\n')}
+
+TRAZABILIDAD COMPLETA:
+${processedFiles.map(file => {
+    const typeLabel = file.type === 'export' ? 'EXPORTACIÓN' : 'IMPORTACIÓN';
+    return `- [${typeLabel}] ${file.name} → ${file.recordCount} registros procesados`;
+}).join('\n')}
 
 ═══════════════════════════════════════════════════════════════
 
+ARCHIVOS GENERADOS:
+- Intrastat_Exportaciones_AEAT.csv (${exportData.length} registros)
+- Intrastat_Importaciones_AEAT.csv (${importData.length} registros)
+
 NOTA: Los archivos CSV generados están listos para subir directamente a la AEAT.
 Formato utilizado: Campos separados por punto y coma (;), decimales con coma (,)
+
+CONTROL DE CALIDAD:
+- Todos los registros han sido validados según criterios AEAT
+- Se mantiene trazabilidad completa hasta el archivo fuente
+- Valores negativos preservados para devoluciones/ajustes
+- Códigos de país y mercancía normalizados
 `;
             return report;
         }
@@ -1330,7 +1058,7 @@ Formato utilizado: Campos separados por punto y coma (;), decimales con coma (,)
             URL.revokeObjectURL(url);
         }
 
-// Función para mostrar información de deployment
+        // Función para mostrar información de deployment
         function updateDeploymentInfo() {
             // Versión basada en la fecha/hora actual del despliegue
             const deployTime = new Date();
@@ -1376,4 +1104,698 @@ Formato utilizado: Campos separados por punto y coma (;), decimales con coma (,)
         }
     </script>
 </body>
-</html>
+</html><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Intrastat - Alstom Movilidad</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .upload-area {
+            border: 3px dashed #3498db;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .upload-area.dragover {
+            background: #e1f5fe;
+            border-color: #01579b;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #3498db;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            margin: 5px;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .btn-large {
+            padding: 20px 40px;
+            font-size: 1.2em;
+        }
+
+        .file-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .file-details {
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #fff, #f8f9fa);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid #3498db;
+        }
+
+        .summary-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .summary-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+
+        .tabs {
+            display: flex;
+            background: #ecf0f1;
+            border-radius: 10px;
+            padding: 5px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .tab.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            font-size: 0.9em;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .data-table th {
+            background: #2c3e50;
+            color: white;
+            font-weight: 600;
+            font-size: 0.8em;
+        }
+
+        .data-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .export-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .country-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .country-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #e74c3c;
+        }
+
+        .progress-section {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .log-area {
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 10px;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <!-- Version and Deployment Info -->
+            <div style="position: absolute; top: 10px; right: 15px; font-size: 0.8em; color: rgba(255,255,255,0.8); z-index: 1000;">
+                <div id="version-info" style="text-align: right; margin-bottom: 5px;">
+                    <span style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 12px; display: inline-block;">
+                        📦 v<span id="app-version">1.4.0</span>
+                    </span>
+                </div>
+                <div id="deployment-info" style="text-align: right;">
+                    <span id="deployment-status" style="background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 12px; display: inline-block;">
+                        🚀 <span id="deployment-time">Cargando...</span>
+                    </span>
+                </div>
+            </div>
+            <h1>🚂 Gestor de Intrastat</h1>
+            <p>Alstom Movilidad - Procesamiento y Consolidación de Datos Intrastat</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Pestañas de navegación -->
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('monthly-manager')">📁 Gestión por Meses</div>
+                <div class="tab" onclick="switchTab('processor')">⚡ Procesador Rápido</div>
+                <div class="tab" onclick="switchTab('exports')">📤 Exportaciones</div>
+                <div class="tab" onclick="switchTab('imports')">📥 Importaciones</div>
+                <div class="tab" onclick="switchTab('summary')">📊 Resumen Final</div>
+            </div>
+
+            <!-- Gestión por Meses -->
+            <div id="monthly-manager" class="tab-content active">
+                <div class="section">
+                    <h2>📁 Gestión de Intrastat por Meses</h2>
+                    
+                    <div class="alert alert-info">
+                        <strong>🎯 Flujo profesional:</strong>
+                        <ol style="margin-top: 10px; margin-left: 20px;">
+                            <li>Selecciona el mes y año de trabajo</li>
+                            <li>Sube archivos clasificándolos como Exportación o Importación</li>
+                            <li>Los archivos se organizan automáticamente por carpetas</li>
+                            <li>Procesa el mes completo cuando tengas todos los archivos</li>
+                            <li>Genera informes con trazabilidad completa de fuentes</li>
+                        </ol>
+                    </div>
+
+                    <!-- Selector de Mes/Año -->
+                    <div class="month-selector" style="background: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+                        <h3>📅 Seleccionar Período</h3>
+                        <div style="display: flex; gap: 15px; align-items: center; margin-top: 10px;">
+                            <label style="font-weight: 600;">Mes:</label>
+                            <select id="month-select" style="padding: 8px; border-radius: 5px; border: 1px solid #ddd;">
+                                <option value="01">Enero</option>
+                                <option value="02">Febrero</option>
+                                <option value="03">Marzo</option>
+                                <option value="04">Abril</option>
+                                <option value="05">Mayo</option>
+                                <option value="06" selected>Junio</option>
+                                <option value="07">Julio</option>
+                                <option value="08">Agosto</option>
+                                <option value="09">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                            
+                            <label style="font-weight: 600;">Año:</label>
+                            <select id="year-select" style="padding: 8px; border-radius: 5px; border: 1px solid #ddd;">
+                                <option value="2024">2024</option>
+                                <option value="2025" selected>2025</option>
+                                <option value="2026">2026</option>
+                            </select>
+                            
+                            <button class="btn" onclick="loadMonthData()" style="margin-left: 10px;">
+                                📂 Cargar Mes
+                            </button>
+                        </div>
+                        <div id="current-month-display" style="margin-top: 10px; font-size: 1.1em; color: #2c3e50;">
+                            <strong>📁 Trabajando en: Junio 2025</strong>
+                        </div>
+                    </div>
+
+                    <!-- Área de carga con clasificación -->
+                    <div class="upload-classification" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                        <!-- Exportaciones -->
+                        <div class="upload-zone export-zone" style="border: 3px dashed #27ae60; border-radius: 15px; padding: 30px; background: #f8fff8; text-align: center; cursor: pointer;" 
+                             onclick="document.getElementById('export-files').click()" 
+                             ondrop="handleClassifiedDrop(event, 'export')" 
+                             ondragover="handleDragOver(event)" 
+                             ondragleave="handleDragLeave(event)">
+                            <div style="font-size: 2.5em; color: #27ae60; margin-bottom: 15px;">📤</div>
+                            <h3 style="color: #27ae60; margin-bottom: 10px;">EXPORTACIONES</h3>
+                            <p>Arrastra archivos de expediciones aquí</p>
+                            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">Excel (.xlsx, .xls) y CSV</p>
+                            <input type="file" id="export-files" class="file-input" multiple accept=".xlsx,.xls,.csv">
+                        </div>
+
+                        <!-- Importaciones -->
+                        <div class="upload-zone import-zone" style="border: 3px dashed #e74c3c; border-radius: 15px; padding: 30px; background: #fff8f8; text-align: center; cursor: pointer;" 
+                             onclick="document.getElementById('import-files').click()" 
+                             ondrop="handleClassifiedDrop(event, 'import')" 
+                             ondragover="handleDragOver(event)" 
+                             ondragleave="handleDragLeave(event)">
+                            <div style="font-size: 2.5em; color: #e74c3c; margin-bottom: 15px;">📥</div>
+                            <h3 style="color: #e74c3c; margin-bottom: 10px;">IMPORTACIONES</h3>
+                            <p>Arrastra archivos de adquisiciones aquí</p>
+                            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">Excel (.xlsx, .xls) y CSV</p>
+                            <input type="file" id="import-files" class="file-input" multiple accept=".xlsx,.xls,.csv">
+                        </div>
+                    </div>
+
+                    <!-- Estructura de carpetas del mes actual -->
+                    <div id="month-structure" class="month-structure" style="background: #f8f9fa; border-radius: 10px; padding: 20px;">
+                        <h3>📂 Archivos del Mes Actual</h3>
+                        <div id="month-folders" style="margin-top: 15px;">
+                            <div class="folder-view">
+                                <div class="folder-header" style="display: flex; align-items: center; margin-bottom: 15px;">
+                                    <span style="font-size: 1.5em;">📁</span>
+                                    <span style="font-weight: 600; margin-left: 10px;" id="folder-title">Junio 2025</span>
+                                    <button class="btn btn-success" onclick="processCurrentMonth()" disabled id="process-month-btn" style="margin-left: auto;">
+                                        ⚡ Procesar Mes Completo
+                                    </button>
+                                </div>
+                                
+                                <!-- Exportaciones folder -->
+                                <div class="subfolder" style="margin-left: 20px; margin-bottom: 10px;">
+                                    <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                                        <span style="font-size: 1.2em;">📤</span>
+                                        <span style="font-weight: 600; margin-left: 8px; color: #27ae60;">Exportaciones</span>
+                                        <span id="export-count" style="margin-left: 10px; background: #27ae60; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">0 archivos</span>
+                                    </div>
+                                    <div id="export-files-list" style="margin-left: 25px;"></div>
+                                </div>
+                                
+                                <!-- Importaciones folder -->
+                                <div class="subfolder" style="margin-left: 20px;">
+                                    <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                                        <span style="font-size: 1.2em;">📥</span>
+                                        <span style="font-weight: 600; margin-left: 8px; color: #e74c3c;">Importaciones</span>
+                                        <span id="import-count" style="margin-left: 10px; background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em;">0 archivos</span>
+                                    </div>
+                                    <div id="import-files-list" style="margin-left: 25px;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progreso de procesamiento -->
+                    <div id="month-progress-section" class="progress-section" style="display: none;">
+                        <h3>Procesando mes completo...</h3>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="month-progress-fill"></div>
+                        </div>
+                        <p id="month-progress-text">Iniciando...</p>
+                    </div>
+
+                    <!-- Log específico del mes -->
+                    <div id="month-log-section" style="display: none;">
+                        <h3>Log de Procesamiento del Mes:</h3>
+                        <div id="month-log-area" class="log-area"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Procesador Rápido (anteriormente Procesador) -->
+            <div id="processor" class="tab-content">
+                <div class="section">
+                    <h2>⚡ Procesador Rápido</h2>
+                    
+                    <div class="alert alert-info">
+                        <strong>🚀 Procesamiento inmediato:</strong>
+                        <ol style="margin-top: 10px; margin-left: 20px;">
+                            <li>Sube archivos para procesamiento inmediato (modo legacy)</li>
+                            <li>El sistema los procesará y mapeará al formato AEAT</li>
+                            <li>Revisa y valida los datos procesados</li>
+                            <li>Descarga el archivo CSV final para AEAT</li>
+                        </ol>
+                        <p style="margin-top: 10px;"><strong>💡 Recomendación:</strong> Usa la "Gestión por Meses" para un flujo más profesional.</p>
+                    </div>
+
+                    <div class="upload-area" id="main-upload" onclick="document.getElementById('main-files').click()" 
+                         ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                        <div class="upload-icon">📁</div>
+                        <h3>Arrastra archivos Excel/CSV de Alstom aquí</h3>
+                        <p>Archivos soportados: .xlsx, .xls, .csv</p>
+                        <p><strong>Procesa automáticamente:</strong> Expediciones e Importaciones</p>
+                        <input type="file" id="main-files" class="file-input" multiple accept=".xlsx,.xls,.csv">
+                    </div>
+
+                    <div id="progress-section" class="progress-section" style="display: none;">
+                        <h3>Procesando archivos...</h3>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <p id="progress-text">Iniciando...</p>
+                    </div>
+
+                    <div id="log-section" style="display: none;">
+                        <h3>Log de Procesamiento:</h3>
+                        <div id="log-area" class="log-area"></div>
+                    </div>
+
+                    <div id="processed-files" class="file-list" style="display: none;">
+                        <h3>Archivos Procesados:</h3>
+                        <div id="processed-files-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido de Exportaciones -->
+            <div id="exports" class="tab-content">
+                <div class="section">
+                    <h2>📤 Exportaciones Procesadas (Expediciones)</h2>
+                    
+                    <div class="summary-grid" id="export-summary">
+                        <div class="summary-card">
+                            <h3>Total Registros</h3>
+                            <div class="summary-value" id="export-total-records">0</div>
+                            <div class="summary-label">expediciones procesadas</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Valor Total</h3>
+                            <div class="summary-value" id="export-total-value">€0</div>
+                            <div class="summary-label">importe facturado</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Países Destino</h3>
+                            <div class="summary-value" id="export-countries">0</div>
+                            <div class="summary-label">países diferentes</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Masa Neta Total</h3>
+                            <div class="summary-value" id="export-total-weight">0</div>
+                            <div class="summary-label">kg exportados</div>
+                        </div>
+                    </div>
+
+                    <div id="export-data-section" style="display: none;">
+                        <h3>Datos de Exportación (Primeros 100 registros):</h3>
+                        <div style="overflow-x: auto;">
+                            <table class="data-table" id="export-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>País</th>
+                                        <th>Provincia</th>
+                                        <th>Cond. Entrega</th>
+                                        <th>Nat. Trans.</th>
+                                        <th>Transporte</th>
+                                        <th>Puerto</th>
+                                        <th>Cód. Mercancía</th>
+                                        <th>País Origen</th>
+                                        <th>Reg. Est.</th>
+                                        <th>Masa Neta</th>
+                                        <th>Unid. Supl.</th>
+                                        <th>Imp. Facturado</th>
+                                        <th>Valor Est.</th>
+                                        <th>NIF Contraparte</th>
+                                        <th>Origen</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido de Importaciones -->
+            <div id="imports" class="tab-content">
+                <div class="section">
+                    <h2>📥 Importaciones Procesadas</h2>
+                    
+                    <div class="summary-grid" id="import-summary">
+                        <div class="summary-card">
+                            <h3>Total Registros</h3>
+                            <div class="summary-value" id="import-total-records">0</div>
+                            <div class="summary-label">importaciones procesadas</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Valor Total</h3>
+                            <div class="summary-value" id="import-total-value">€0</div>
+                            <div class="summary-label">importe facturado</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Países Origen</h3>
+                            <div class="summary-value" id="import-countries">0</div>
+                            <div class="summary-label">países diferentes</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Masa Neta Total</h3>
+                            <div class="summary-value" id="import-total-weight">0</div>
+                            <div class="summary-label">kg importados</div>
+                        </div>
+                    </div>
+
+                    <div id="import-data-section" style="display: none;">
+                        <h3>Datos de Importación (Primeros 100 registros):</h3>
+                        <div style="overflow-x: auto;">
+                            <table class="data-table" id="import-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>País</th>
+                                        <th>Provincia</th>
+                                        <th>Cond. Entrega</th>
+                                        <th>Nat. Trans.</th>
+                                        <th>Transporte</th>
+                                        <th>Puerto</th>
+                                        <th>Cód. Mercancía</th>
+                                        <th>País Origen</th>
+                                        <th>Reg. Est.</th>
+                                        <th>Masa Neta</th>
+                                        <th>Unid. Supl.</th>
+                                        <th>Imp. Facturado</th>
+                                        <th>Valor Est.</th>
+                                        <th>NIF Contraparte</th>
+                                        <th>Origen</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen Final -->
+            <div id="summary" class="tab-content">
+                <div class="section">
+                    <h2>📊 Resumen Final y Exportación</h2>
+                    
+                    <div class="summary-grid">
+                        <div class="summary-card">
+                            <h3>Total General</h3>
+                            <div class="summary-value" id="total-records">0</div>
+                            <div class="summary-label">registros procesados</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Valor Comercio</h3>
+                            <div class="summary-value" id="total-trade-value">€0</div>
+                            <div class="summary-label">valor total comercio</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>Archivos Origen</h3>
+                            <div class="summary-value" id="total-files">0</div>
+                            <div class="summary-label">archivos procesados</div>
+                        </div>
+                        <div class="summary-card">
+                            <h3>
