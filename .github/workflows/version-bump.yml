@@ -32,36 +32,72 @@ jobs:
     - name: 🔢 Bump version
       id: bump
       run: |
-        # Extraer versión actual del Index.html
-        CURRENT=$(grep -o 'app-version">[^<]*' Index.html | sed 's/app-version">//')
-        echo "Current version: $CURRENT"
+        echo "=== Starting version bump process ==="
         
-        IFS='.' read -r major minor patch <<< "$CURRENT"
-        
-        # Determinar tipo de bump
-        VERSION_TYPE="${{ github.event.inputs.version_type }}"
-        if [ -z "$VERSION_TYPE" ]; then
-          VERSION_TYPE="patch"  # Por defecto en push automático
+        # Verificar que los archivos existen
+        if [ ! -f "Index.html" ]; then
+          echo "ERROR: Index.html not found"
+          exit 1
         fi
         
-        case "$VERSION_TYPE" in
-          "major") NEW_VERSION="$((major+1)).0.0" ;;
-          "minor") NEW_VERSION="$major.$((minor+1)).0" ;;
-          "patch") NEW_VERSION="$major.$minor.$((patch+1))" ;;
-        esac
+        if [ ! -f "package.json" ]; then
+          echo "ERROR: package.json not found"
+          exit 1
+        fi
+        
+        # Extraer versión actual del package.json (más confiable)
+        CURRENT=$(grep -o '"version": "[^"]*"' package.json | sed 's/"version": "//' | sed 's/"//')
+        echo "Current version from package.json: $CURRENT"
+        
+        # Verificar que la versión tiene formato correcto
+        if [[ ! $CURRENT =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "ERROR: Invalid version format: $CURRENT"
+          exit 1
+        fi
+        
+        # Separar componentes de la versión
+        IFS='.' read -r major minor patch <<< "$CURRENT"
+        echo "Parsed - Major: $major, Minor: $minor, Patch: $patch"
+        
+        # Incrementar patch por defecto
+        NEW_PATCH=$((patch + 1))
+        NEW_VERSION="$major.$minor.$NEW_PATCH"
         
         echo "New version: $NEW_VERSION"
         
-        # Actualizar Index.html - versión en header
-        sed -i "s/app-version\">$CURRENT/app-version\">$NEW_VERSION/" Index.html
-        
-        # Actualizar Index.html - versión en metadatos
-        sed -i "s/'Versión del Sistema': '$CURRENT'/'Versión del Sistema': '$NEW_VERSION'/" Index.html
+        # Verificar que la nueva versión es diferente
+        if [ "$CURRENT" = "$NEW_VERSION" ]; then
+          echo "ERROR: New version same as current"
+          exit 1
+        fi
         
         # Actualizar package.json
+        echo "Updating package.json..."
         sed -i "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW_VERSION\"/" package.json
         
+        # Actualizar Index.html - versión en header
+        echo "Updating Index.html header..."
+        sed -i "s/app-version\">$CURRENT</app-version\">$NEW_VERSION</" Index.html
+        
+        # Actualizar Index.html - versión en metadatos
+        echo "Updating Index.html metadata..."
+        sed -i "s/'Versión del Sistema': '$CURRENT'/'Versión del Sistema': '$NEW_VERSION'/" Index.html
+        
+        # Verificar que los cambios se aplicaron
+        NEW_PKG_VERSION=$(grep -o '"version": "[^"]*"' package.json | sed 's/"version": "//' | sed 's/"//')
+        NEW_HTML_VERSION=$(grep -o 'app-version">[^<]*' Index.html | sed 's/app-version">//')
+        
+        echo "Verification:"
+        echo "  package.json version: $NEW_PKG_VERSION"
+        echo "  Index.html version: $NEW_HTML_VERSION"
+        
+        if [ "$NEW_PKG_VERSION" != "$NEW_VERSION" ] || [ "$NEW_HTML_VERSION" != "$NEW_VERSION" ]; then
+          echo "ERROR: Version update failed"
+          exit 1
+        fi
+        
         echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "=== Version bump completed successfully ==="
         
     - name: 💾 Commit version bump
       run: |
